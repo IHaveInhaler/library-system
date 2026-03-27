@@ -62,7 +62,9 @@ npm run dev   # http://localhost:5173
 
 | Route | Page | Description |
 |---|---|---|
-| `/admin` | Admin — Permissions | Role permission matrix; toggle which actions each role (MEMBER, LIBRARIAN) can perform; ADMIN permissions are always locked on |
+| `/admin` | Admin Hub | Hub page linking to Permissions and Groups (mirrors Manage page layout) |
+| `/admin/permissions` | Admin — Permissions | Role permission matrix; toggle which actions each role (MEMBER, LIBRARIAN) can perform; ADMIN permissions are always locked on |
+| `/admin/groups` | Admin — Groups | Create/manage groups (roles); expand each group to toggle its permissions inline; delete custom groups |
 
 ---
 
@@ -140,6 +142,7 @@ site/src/
 │   ├── copies.ts
 │   ├── loans.ts
 │   ├── reservations.ts
+│   ├── groups.ts
 │   └── users.ts
 │
 ├── store/
@@ -207,8 +210,10 @@ site/src/
     │   └── ProfilePage.tsx
     │
     └── admin/
-        ├── ManagePage.tsx          — /manage dashboard (was AdminHomePage)
-        ├── AdminPermissionsPage.tsx — /admin ADMIN-only permission matrix
+        ├── ManagePage.tsx          — /manage dashboard
+        ├── AdminPage.tsx           — /admin hub (links to Permissions, Groups)
+        ├── AdminPermissionsPage.tsx — /admin/permissions permission matrix
+        ├── GroupsPage.tsx          — /admin/groups create/manage groups & permissions
         ├── ManageBooksPage.tsx
         ├── ManageCopiesPage.tsx
         ├── ManageLibrariesPage.tsx

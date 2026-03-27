@@ -102,6 +102,8 @@ After running `db:migrate` or `db:seed`, these accounts are available:
 | `/api/copies`        | Physical book copies                 |
 | `/api/loans`         | Checkout / return / renew            |
 | `/api/reservations`  | Reserve books when all copies are out|
+| `/api/permissions`   | Role permission matrix (ADMIN only)  |
+| `/api/groups`        | Manage groups / roles (ADMIN only)   |
 
 ### Database GUI
 
@@ -193,7 +195,9 @@ npm run preview
 
 | Route | Description |
 |---|---|
-| `/admin` | Permission matrix — toggle per-role permissions |
+| `/admin` | Admin hub — links to Permissions and Groups |
+| `/admin/permissions` | Permission matrix — toggle per-role permissions |
+| `/admin/groups` | Groups — create/manage roles and their permissions |
 
 ### Tech Stack
 
