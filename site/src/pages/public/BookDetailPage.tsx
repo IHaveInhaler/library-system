@@ -43,7 +43,7 @@ export default function BookDetailPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900">
+      <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
@@ -52,15 +52,15 @@ export default function BookDetailPage() {
           {book.coverUrl ? (
             <img src={book.coverUrl} alt={book.title} className="h-64 w-44 rounded-xl object-cover shadow-md" />
           ) : (
-            <div className="flex h-64 w-44 items-center justify-center rounded-xl bg-gray-100 shadow-md">
-              <BookOpen className="h-12 w-12 text-gray-300" />
+            <div className="flex h-64 w-44 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800 shadow-md">
+              <BookOpen className="h-12 w-12 text-gray-300 dark:text-gray-600" />
             </div>
           )}
         </div>
 
         <div className="flex-1">
-          <h1 className="text-3xl font-bold text-gray-900">{book.title}</h1>
-          <p className="mt-1 text-lg text-gray-600">{book.author}</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{book.title}</h1>
+          <p className="mt-1 text-lg text-gray-600 dark:text-gray-400">{book.author}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Badge label={book.genre.replace('_', ' ')} variant="blue" />
             {book.language && <Badge label={book.language.toUpperCase()} variant="gray" />}
@@ -68,13 +68,13 @@ export default function BookDetailPage() {
           </div>
 
           {book.description && (
-            <p className="mt-4 text-sm leading-relaxed text-gray-600">{book.description}</p>
+            <p className="mt-4 text-sm leading-relaxed text-gray-600 dark:text-gray-400">{book.description}</p>
           )}
 
-          <div className="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
-            {book.publisher && <div><span className="font-medium text-gray-500">Publisher</span><p>{book.publisher}</p></div>}
-            {book.totalPages && <div><span className="font-medium text-gray-500">Pages</span><p>{book.totalPages}</p></div>}
-            <div><span className="font-medium text-gray-500">ISBN</span><p className="font-mono text-xs">{book.isbn}</p></div>
+          <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-gray-900 dark:text-gray-200 sm:grid-cols-3">
+            {book.publisher && <div><span className="font-medium text-gray-500 dark:text-gray-400">Publisher</span><p>{book.publisher}</p></div>}
+            {book.totalPages && <div><span className="font-medium text-gray-500 dark:text-gray-400">Pages</span><p>{book.totalPages}</p></div>}
+            <div><span className="font-medium text-gray-500 dark:text-gray-400">ISBN</span><p className="font-mono text-xs">{book.isbn}</p></div>
           </div>
 
           <div className="mt-6 flex items-center gap-4">
@@ -92,10 +92,10 @@ export default function BookDetailPage() {
 
       {copies && copies.length > 0 && (
         <div className="mt-10">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Copies</h2>
-          <div className="overflow-hidden rounded-xl border border-gray-200">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Copies</h2>
+          <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+            <table className="w-full text-sm text-gray-900 dark:text-gray-200">
+              <thead className="bg-gray-50 dark:bg-gray-700/60 text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
                 <tr>
                   <th className="px-4 py-3 text-left">Barcode</th>
                   <th className="px-4 py-3 text-left">Library</th>
@@ -104,9 +104,9 @@ export default function BookDetailPage() {
                   <th className="px-4 py-3 text-left">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {copies.map((copy) => (
-                  <tr key={copy.id} className="hover:bg-gray-50">
+                  <tr key={copy.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
                     <td className="px-4 py-3 font-mono text-xs">{copy.barcode}</td>
                     <td className="px-4 py-3">{copy.shelf.library.name}</td>
                     <td className="px-4 py-3 font-mono text-xs">{copy.shelf.label}</td>

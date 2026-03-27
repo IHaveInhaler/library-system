@@ -96,7 +96,7 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative flex h-full w-full max-w-xl flex-col bg-white shadow-2xl dark:bg-gray-900">
+      <div className="relative flex h-full w-full max-w-xl flex-col bg-white shadow-2xl dark:bg-gray-800">
         {/* Header */}
         <div className="flex items-start justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
           <div>
@@ -208,7 +208,7 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
                         <span className="text-sm text-gray-900 dark:text-white">
                           {shelves?.data.find(s => s.id === copyForm.shelfId)?.code ?? copyForm.shelfId}
                         </span>
-                        <button onClick={() => setCopyForm({ ...copyForm, shelfId: '', shelfSearch: '' })} className="text-gray-400 hover:text-gray-600">
+                        <button onClick={() => setCopyForm({ ...copyForm, shelfId: '', shelfSearch: '' })} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                           <X className="h-4 w-4" />
                         </button>
                       </div>
@@ -225,7 +225,7 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
                             {shelves.data.map((s) => (
                               <li key={s.id}>
                                 <button onClick={() => { setCopyForm({ ...copyForm, shelfId: s.id, shelfSearch: s.code }); setShelfQuery('') }}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700">
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700/40">
                                   <span className="font-mono font-medium text-gray-900 dark:text-white">{s.code}</span>
                                   <span className="text-gray-500 dark:text-gray-400">· {s.library?.name} · {s.genre}</span>
                                 </button>
@@ -301,7 +301,7 @@ function IsbnModal({ open, onClose }: { open: boolean; onClose: () => void }) {
                 <div className="mt-3">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Genre</label>
                   <select value={isbnGenre} onChange={(e) => setIsbnGenre(e.target.value as Genre)}
-                    className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                    className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                     {GENRES.map((g) => <option key={g} value={g}>{g.replace('_', ' ')}</option>)}
                   </select>
                 </div>

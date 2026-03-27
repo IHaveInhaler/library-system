@@ -60,7 +60,7 @@ function FulfillModal({
             Select a copy to assign
           </label>
           {availableCopies.length === 0 ? (
-            <p className="text-sm text-red-500">No available copies for this book</p>
+            <p className="text-sm text-red-500 dark:text-red-400">No available copies for this book</p>
           ) : (
             <div className="space-y-1.5">
               {availableCopies.map((copy) => (

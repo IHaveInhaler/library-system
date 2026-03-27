@@ -97,7 +97,7 @@ function IssueLoanModal({ open, onClose, onSuccess }: { open: boolean; onClose: 
                     <li key={u.id}>
                       <button
                         onClick={() => { setSelectedUser(u); setUserSearch('') }}
-                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40"
                       >
                         <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-medium dark:bg-gray-600 dark:text-gray-200">
                           {u.firstName[0]}{u.lastName[0]}
@@ -136,7 +136,7 @@ function IssueLoanModal({ open, onClose, onSuccess }: { open: boolean; onClose: 
                   Available copies ({availableCopies.length})
                 </p>
                 {availableCopies.length === 0 ? (
-                  <p className="text-xs text-red-500">No available copies</p>
+                  <p className="text-xs text-red-500 dark:text-red-400">No available copies</p>
                 ) : (
                   <div className="space-y-1">
                     {availableCopies.map((copy) => (
@@ -174,7 +174,7 @@ function IssueLoanModal({ open, onClose, onSuccess }: { open: boolean; onClose: 
                     <li key={b.id}>
                       <button
                         onClick={() => { setSelectedBook(b); setBookSearch('') }}
-                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700"
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40"
                       >
                         <div>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">{b.title}</p>

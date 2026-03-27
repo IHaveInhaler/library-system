@@ -126,7 +126,7 @@ export default function LibraryDetailPage() {
             value={shelfSearch}
             onChange={(e) => setShelfSearch(e.target.value)}
             placeholder="Search shelves & books…"
-            className="w-64 rounded-lg border border-gray-300 bg-white py-1.5 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
+            className="w-64 rounded-lg border border-gray-300 bg-white py-1.5 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
           />
         </div>
       </div>
@@ -135,7 +135,7 @@ export default function LibraryDetailPage() {
         <div className="mb-6">
           <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
             Books matching "{shelfSearch}"
-            {bookResults && <span className="ml-1 font-normal text-gray-400">({bookResults.meta.total})</span>}
+            {bookResults && <span className="ml-1 font-normal text-gray-400 dark:text-gray-500">({bookResults.meta.total})</span>}
           </h3>
           {booksLoading ? (
             <p className="text-xs text-gray-400 dark:text-gray-500">Searching books…</p>
