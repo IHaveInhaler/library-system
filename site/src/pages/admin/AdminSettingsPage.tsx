@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users } from 'lucide-react'
+import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users, Globe } from 'lucide-react'
 import { settingsApi, type SettingKey } from '../../api/settings'
 import { setupApi } from '../../api/setup'
 import { useAuthStore } from '../../store/auth'
@@ -16,7 +16,6 @@ type SmtpFormState = {
   'smtp.user': string
   'smtp.pass': string
   'smtp.from': string
-  'app.baseUrl': string
 }
 
 const EMPTY_SMTP: SmtpFormState = {
@@ -26,7 +25,6 @@ const EMPTY_SMTP: SmtpFormState = {
   'smtp.user': '',
   'smtp.pass': '',
   'smtp.from': '',
-  'app.baseUrl': '',
 }
 
 // ── SMTP Section ──────────────────────────────────────────────────────────────
@@ -143,14 +141,73 @@ function SmtpSettings() {
 
         {field('smtp.from', 'From address', { placeholder: 'Library Portal <noreply@example.com>', disabled: !enabled })}
 
-        <div className="border-t border-gray-100 pt-4 dark:border-gray-700">
-          {field('app.baseUrl', 'Site base URL', { placeholder: 'https://library.example.com' })}
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Used to build password reset links in emails.</p>
-        </div>
-
         {!allSmtpLocked && (
           <div className="flex justify-end pt-2">
             <Button onClick={() => save.mutate()} loading={save.isPending}>Save settings</Button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── General Section ───────────────────────────────────────────────────────
+
+function GeneralSettings() {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const [baseUrl, setBaseUrl] = useState('')
+
+  useEffect(() => {
+    if (data) setBaseUrl(data.settings['app.baseUrl'] || '')
+  }, [data])
+
+  const locked = data?.locked ?? []
+  const isLocked = locked.includes('app.baseUrl' as SettingKey)
+
+  const save = useMutation({
+    mutationFn: () => settingsApi.update({ 'app.baseUrl': baseUrl }),
+    onSuccess: (res) => { toast.success('Settings saved'); qc.setQueryData(['settings'], res) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  if (isLoading) return <div className="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700">
+          <Globe className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-gray-900 dark:text-white">General</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Core system settings.</p>
+        </div>
+      </div>
+      <div className="space-y-4 p-6">
+        <div>
+          <label className="mb-1.5 flex items-center text-sm font-medium text-gray-700 dark:text-gray-300">
+            Site base URL
+            {isLocked && (
+              <span className="ml-1.5 inline-flex items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                <Lock className="h-3 w-3" /> env
+              </span>
+            )}
+          </label>
+          <input
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            placeholder="https://library.example.com"
+            disabled={isLocked}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
+          />
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Used for password reset links, account invite emails, and other outbound URLs.
+          </p>
+        </div>
+        {!isLocked && (
+          <div className="flex justify-end">
+            <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
           </div>
         )}
       </div>
@@ -507,6 +564,7 @@ export default function AdminSettingsPage() {
       </div>
 
       <div className="space-y-8">
+        <GeneralSettings />
         <SmtpSettings />
         <RegistrationSettings />
         <DeveloperSection />
