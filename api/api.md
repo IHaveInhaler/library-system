@@ -72,7 +72,7 @@ Returns the current user object.
 
 ## Users
 
-All routes require authentication. Permission-controlled via `MANAGE_USERS` permission.
+All routes require authentication. Read operations require `VIEW_USERS`; write operations require `MANAGE_USERS`. Deleting a user requires the ADMIN role. A user cannot change their own role (enforced at the service layer). Role assignment is rank-gated: a caller can only manage users whose role rank is lower than their own, and can only assign roles of lower rank than their own (based on group `order`).
 
 ### `GET /api/users`
 Query: `?page=1&limit=20&search=&role=MEMBER&isActive=true`
@@ -106,7 +106,9 @@ Returns all reservations for the given user.
 
 ## Libraries
 
-GET routes use optional authentication — private libraries are hidden from unauthenticated users and non-patron members.
+GET routes use optional authentication. Access is governed by two layers:
+1. **`isPrivate` flag** — private libraries are never shown to users without an active membership.
+2. **`VIEW_LIBRARIES` permission** — if a role has this permission (default: `true` for MEMBER and LIBRARIAN), the user sees all public libraries plus their memberships. If set to `false`, the user sees only libraries they hold an active membership to, regardless of the library's public/private setting.
 
 ### `GET /api/libraries`
 Query: `?page=1&limit=20&search=`
@@ -161,6 +163,8 @@ Requires: `MANAGE_MEMBERSHIPS`
 ---
 
 ## Shelves
+
+GET routes use optional authentication. Access is filtered by the same `VIEW_LIBRARIES` permission as libraries — if the caller lacks it, only shelves from libraries they hold an active membership to are returned.
 
 ### `GET /api/shelves`
 Query: `?page=1&limit=20&libraryId=&genre=`
@@ -306,6 +310,41 @@ Requires: `MANAGE_RESERVATIONS`
 
 ---
 
+## Groups
+
+All routes require ADMIN role.
+
+Groups represent named roles in the system. The three built-in groups (`MEMBER`, `LIBRARIAN`, `ADMIN`) are always present and cannot be deleted. Each group has an `order` field (lower = higher rank). A user can only assign roles with a higher `order` (lower rank) than their own.
+
+### `GET /api/groups`
+Returns all groups ordered by rank, with their resolved permission map.
+```json
+[{ "id": "...", "name": "ADMIN", "description": null, "isBuiltIn": true, "order": 1, "permissions": { "MANAGE_BOOKS": true, ... } }]
+```
+
+### `POST /api/groups`
+```json
+{ "name": "SENIOR_LIBRARIAN", "description": "..." }
+```
+Name must match `^[A-Z][A-Z0-9_]*$`. Cannot duplicate a built-in group name. New group is appended at the lowest rank.
+
+### `POST /api/groups/reorder`
+```json
+{ "names": ["ADMIN", "SENIOR_LIBRARIAN", "LIBRARIAN", "MEMBER"] }
+```
+Reassigns `order` values sequentially (1-indexed) for all groups in the given order. All group names must be valid.
+
+### `PATCH /api/groups/:name`
+```json
+{ "name": "NEW_NAME", "description": "Updated description" }
+```
+`name` renames the group (updates all users and permissions referencing it in a transaction). Cannot rename built-in groups. Both fields are optional.
+
+### `DELETE /api/groups/:name`
+Deletes a custom group. Fails if any users are assigned to it. Built-in groups cannot be deleted.
+
+---
+
 ## Permissions
 
 Requires: ADMIN role
@@ -339,6 +378,7 @@ If no DB record exists for a role+permission combination, the system falls back 
 
 | Permission | MEMBER | LIBRARIAN |
 |---|---|---|
+| VIEW_LIBRARIES | ✓ | ✓ |
 | MANAGE_BOOKS | ✗ | ✓ |
 | MANAGE_LIBRARIES | ✗ | ✓ |
 | MANAGE_SHELVES | ✗ | ✓ |
@@ -349,7 +389,8 @@ If no DB record exists for a role+permission combination, the system falls back 
 | MANAGE_RESERVATIONS | ✗ | ✓ |
 | VIEW_ALL_RESERVATIONS | ✗ | ✓ |
 | MANAGE_MEMBERSHIPS | ✗ | ✓ |
-| MANAGE_USERS | ✗ | ✗ |
+| VIEW_USERS | ✗ | ✓ |
+| MANAGE_USERS | ✗ | ✓ |
 
 ADMIN always has all permissions (not stored in DB).
 

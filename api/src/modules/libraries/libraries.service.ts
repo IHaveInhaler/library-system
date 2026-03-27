@@ -2,12 +2,23 @@ import { prisma } from '../../lib/prisma'
 import { ForbiddenError, NotFoundError } from '../../errors/index'
 import { CreateLibraryInput, UpdateLibraryInput, LibraryQueryInput } from './libraries.schemas'
 import { getAccessibleLibraryIds } from '../../lib/libraryAccess'
+import { hasPermission } from '../../lib/permissions'
+
+async function resolveAccess(userId?: string, userRole?: string) {
+  if (!userId || !userRole) return { canViewPublic: true, canViewAll: false }
+  const [canViewAll, canViewPublic] = await Promise.all([
+    hasPermission(userRole, 'VIEW_ALL_LIBRARIES'),
+    hasPermission(userRole, 'VIEW_LIBRARIES'),
+  ])
+  return { canViewPublic, canViewAll }
+}
 
 export async function listLibraries(query: LibraryQueryInput, userId?: string, userRole?: string) {
   const { page, limit, search } = query
   const skip = (page - 1) * limit
 
-  const accessibleIds = await getAccessibleLibraryIds(userId, userRole)
+  const { canViewPublic, canViewAll } = await resolveAccess(userId, userRole)
+  const accessibleIds = await getAccessibleLibraryIds(userId, userRole, canViewPublic, canViewAll)
 
   const where = {
     isActive: true,
@@ -35,12 +46,12 @@ export async function getLibrary(id: string, userId?: string, userRole?: string)
   })
   if (!library) throw new NotFoundError('Library')
 
-  // Private library — check access
-  if (library.isPrivate) {
-    const accessibleIds = await getAccessibleLibraryIds(userId, userRole)
-    if (accessibleIds && !accessibleIds.includes(id)) {
-      throw new ForbiddenError('This library is private')
-    }
+  const { canViewPublic, canViewAll } = await resolveAccess(userId, userRole)
+  const accessibleIds = await getAccessibleLibraryIds(userId, userRole, canViewPublic, canViewAll)
+
+  // Restricted: must be in the accessible set
+  if (accessibleIds && !accessibleIds.includes(id)) {
+    throw new ForbiddenError(library.isPrivate ? 'This library is private' : 'You need a membership to access this library')
   }
 
   return library

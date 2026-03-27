@@ -25,7 +25,7 @@ export async function getPermissionMatrix() {
 }
 
 export async function setPermission(role: string, permission: string, granted: boolean) {
-  if (!CONFIGURABLE_ROLES.includes(role as any)) {
+  if (role === 'ADMIN') {
     throw new Error('Cannot modify ADMIN permissions')
   }
   if (!(PERMISSIONS as readonly string[]).includes(permission)) {

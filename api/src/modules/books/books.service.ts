@@ -3,17 +3,28 @@ import { NotFoundError, BadRequestError, ConflictError } from '../../errors/inde
 import { fetchByIsbn } from '../../lib/openLibrary'
 import { CreateBookInput, UpdateBookInput, BookQueryInput, IsbnLookupInput } from './books.schemas'
 import { getAccessibleLibraryIds } from '../../lib/libraryAccess'
+import { hasPermission } from '../../lib/permissions'
+
+async function resolveAccess(userId?: string, userRole?: string) {
+  if (!userId || !userRole) return { canViewPublic: true, canViewAll: false }
+  const [canViewAll, canViewPublic] = await Promise.all([
+    hasPermission(userRole, 'VIEW_ALL_LIBRARIES'),
+    hasPermission(userRole, 'VIEW_LIBRARIES'),
+  ])
+  return { canViewPublic, canViewAll }
+}
 
 export async function listBooks(query: BookQueryInput, userId?: string, userRole?: string) {
-  const { page, limit, genre, search, author, language } = query
+  const { page, limit, genre, search, author, language, shelfId } = query
   const skip = (page - 1) * limit
 
-  const accessibleIds = await getAccessibleLibraryIds(userId, userRole)
+  const { canViewPublic, canViewAll } = await resolveAccess(userId, userRole)
+  const accessibleIds = await getAccessibleLibraryIds(userId, userRole, canViewPublic, canViewAll)
 
   const where = {
-    ...(accessibleIds && {
-      copies: { some: { shelf: { libraryId: { in: accessibleIds } } } },
-    }),
+    ...(shelfId
+      ? { copies: { some: { shelfId, ...(accessibleIds && { shelf: { libraryId: { in: accessibleIds } } }) } } }
+      : accessibleIds && { copies: { some: { shelf: { libraryId: { in: accessibleIds } } } } }),
     ...(genre && { genre }),
     ...(language && { language }),
     ...(author && { author: { contains: author } }),
@@ -62,7 +73,8 @@ export async function getBook(id: string, userId?: string, userRole?: string) {
   })
   if (!book) throw new NotFoundError('Book')
 
-  const accessibleIds = await getAccessibleLibraryIds(userId, userRole)
+  const { canViewPublic, canViewAll } = await resolveAccess(userId, userRole)
+  const accessibleIds = await getAccessibleLibraryIds(userId, userRole, canViewPublic, canViewAll)
 
   const availableCount = await prisma.bookCopy.count({
     where: {
@@ -101,7 +113,8 @@ export async function deleteBook(id: string) {
 export async function getBookCopies(bookId: string, userId?: string, userRole?: string) {
   await getBook(bookId, userId, userRole)
 
-  const accessibleIds = await getAccessibleLibraryIds(userId, userRole)
+  const { canViewPublic, canViewAll } = await resolveAccess(userId, userRole)
+  const accessibleIds = await getAccessibleLibraryIds(userId, userRole, canViewPublic, canViewAll)
 
   return prisma.bookCopy.findMany({
     where: {
