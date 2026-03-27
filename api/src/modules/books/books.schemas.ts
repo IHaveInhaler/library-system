@@ -24,6 +24,7 @@ export const bookQuerySchema = z.object({
   author: z.string().optional(),
   language: z.string().optional(),
   shelfId: z.string().optional(),
+  libraryId: z.string().optional(),
 })
 
 export const isbnLookupSchema = z.object({

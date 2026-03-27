@@ -68,6 +68,39 @@ Revokes the given refresh token.
 Requires: Bearer token
 Returns the current user object.
 
+### `POST /api/auth/forgot-password`
+Public. Sends a password reset email if the email exists (always returns success to prevent enumeration).
+```json
+{ "email": "..." }
+```
+Returns: `{ message: "..." }`
+If SMTP is not configured, the reset link is logged to the console.
+
+### `POST /api/auth/reset-password`
+Public. Resets password using a valid reset token.
+```json
+{ "token": "...", "password": "..." }
+```
+Invalidates the token and revokes all sessions for the user.
+Returns: `{ message: "..." }`
+
+---
+
+## Settings
+
+### `GET /api/settings`
+Requires: authentication
+Returns all system settings as a flat key→value object.
+Keys: `smtp.enabled`, `smtp.host`, `smtp.port`, `smtp.user`, `smtp.pass`, `smtp.from`, `app.baseUrl`
+
+### `PATCH /api/settings`
+Requires: ADMIN role
+Updates one or more settings.
+```json
+{ "smtp.enabled": "true", "smtp.host": "smtp.example.com", "smtp.port": "587", ... }
+```
+Returns the updated settings object.
+
 ---
 
 ## Users
@@ -96,11 +129,62 @@ Requires: `MANAGE_USERS`
 ### `DELETE /api/users/:id`
 Requires: ADMIN role
 
+### `PATCH /api/users/:id/active`
+Requires: `MANAGE_USERS`
+```json
+{ "isActive": false, "reason": "Violation of terms" }
+```
+Deactivates or reactivates the user. `reason` is required when deactivating and is stored on the user record.
+
+### `POST /api/users/:id/revoke-sessions`
+Requires: `MANAGE_USERS`
+Revokes all refresh tokens for the user, forcing them to log in again.
+
+### `POST /api/users/:id/reset-password`
+Requires: `RESET_USER_PASSWORD`
+Generates a secure temporary password, updates the user's password hash, and revokes all sessions.
+Returns: `{ temporaryPassword: "Xxxx-1234" }`
+
+### `DELETE /api/users/:id`
+Requires: ADMIN role
+
 ### `GET /api/users/:id/loans`
 Returns all loans for the given user.
 
 ### `GET /api/users/:id/reservations`
 Returns all reservations for the given user.
+
+### `GET /api/users/:id/audit`
+Requires: `VIEW_USERS`
+Returns paginated audit log entries where actor = user OR (targetType = "User" AND targetId = user.id).
+
+---
+
+## Audit Log
+
+All routes require authentication.
+
+### `GET /api/audit`
+Requires: `VIEW_AUDIT_LOG`
+Query: `?page=1&limit=50&actorId=&action=&targetType=&targetId=`
+Returns: `PaginatedResponse<AuditLog>`
+
+AuditLog shape:
+```json
+{
+  "id": "...",
+  "actorId": "...",
+  "actorName": "user@example.com",
+  "action": "USER_DEACTIVATED",
+  "targetType": "User",
+  "targetId": "...",
+  "targetName": "Jane Smith",
+  "metadata": "{\"reason\":\"...\"}",
+  "createdAt": "..."
+}
+```
+
+Logged actions: `USER_REGISTERED`, `USER_LOGIN`, `USER_CREATED`, `USER_ACTIVATED`, `USER_DEACTIVATED`, `USER_DELETED`, `USER_ROLE_CHANGED`, `USER_SESSIONS_REVOKED`, `USER_PASSWORD_RESET`, `BOOK_CREATED`, `BOOK_UPDATED`, `BOOK_DELETED`.
 
 ---
 
@@ -391,8 +475,13 @@ If no DB record exists for a role+permission combination, the system falls back 
 | MANAGE_MEMBERSHIPS | ✗ | ✓ |
 | VIEW_USERS | ✗ | ✓ |
 | MANAGE_USERS | ✗ | ✓ |
+| RESET_USER_PASSWORD | ✗ | ✓ |
+| VIEW_ALL_LIBRARIES | ✗ | ✗ |
+| VIEW_AUDIT_LOG | ✗ | ✗ |
 
 ADMIN always has all permissions (not stored in DB).
+`VIEW_ALL_LIBRARIES` bypasses all membership checks — assign to a role to give unrestricted library access.
+`VIEW_AUDIT_LOG` allows reading the system-wide audit log at `GET /api/audit`.
 
 ---
 

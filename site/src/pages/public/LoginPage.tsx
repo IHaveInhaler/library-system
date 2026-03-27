@@ -48,7 +48,12 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <Input label="Email" type="email" id="email" error={errors.email?.message} {...register('email')} />
-          <Input label="Password" type="password" id="password" error={errors.password?.message} {...register('password')} />
+          <div>
+            <Input label="Password" type="password" id="password" error={errors.password?.message} {...register('password')} />
+            <div className="mt-1 text-right">
+              <Link to="/forgot-password" className="text-xs text-blue-600 hover:underline dark:text-blue-400">Forgot password?</Link>
+            </div>
+          </div>
           <Button type="submit" loading={login.isPending} className="w-full">Sign in</Button>
         </form>
 

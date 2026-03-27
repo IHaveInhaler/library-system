@@ -108,8 +108,10 @@ Every page and shared component must have `dark:` variants for:
 | BookDetailPage | ✓ Detail panel, copy table |
 | LibrariesPage | ✓ Library cards |
 | LibraryDetailPage | ✓ Info panel, shelves table |
-| LoginPage | ✓ Card, inputs, button |
+| LoginPage | ✓ Card, inputs, button, forgot password link |
 | RegisterPage | ✓ Card, inputs, button |
+| ForgotPasswordPage | ✓ Email input, sends reset link |
+| ResetPasswordPage | ✓ Token from URL, new password form |
 | DashboardPage | ✓ Stat cards, loan/reservation tables |
 | ManagePage (was AdminHomePage) | ✓ Stat cards, quick-link cards |
 | AdminPermissionsPage | ✓ Permission matrix table, toggle switches |
@@ -203,7 +205,9 @@ site/src/
     │   ├── LibrariesPage.tsx
     │   ├── LibraryDetailPage.tsx
     │   ├── LoginPage.tsx
-    │   └── RegisterPage.tsx
+    │   ├── RegisterPage.tsx
+    │   ├── ForgotPasswordPage.tsx
+    │   └── ResetPasswordPage.tsx
     │
     ├── member/
     │   ├── DashboardPage.tsx

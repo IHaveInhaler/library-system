@@ -25,6 +25,8 @@ const PERMISSION_LABELS: Record<string, string> = {
   MANAGE_MEMBERSHIPS: 'Manage Memberships',
   VIEW_USERS: 'View Users',
   MANAGE_USERS: 'Manage Users',
+  RESET_USER_PASSWORD: 'Reset User Password',
+  VIEW_AUDIT_LOG: 'View Audit Log',
 }
 
 // ── Toggle ─────────────────────────────────────────────────────────────────

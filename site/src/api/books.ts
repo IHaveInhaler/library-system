@@ -9,6 +9,7 @@ export interface BookFilters {
   author?: string
   language?: string
   shelfId?: string
+  libraryId?: string
 }
 
 export interface IsbnLookupResult {

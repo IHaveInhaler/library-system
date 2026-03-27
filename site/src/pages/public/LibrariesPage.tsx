@@ -1,19 +1,25 @@
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Library, Lock } from 'lucide-react'
 import { librariesApi } from '../../api/libraries'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuth, useRole } from '../../hooks/useAuth'
 import { PageSpinner } from '../../components/ui/Spinner'
 import { EmptyState } from '../../components/ui/EmptyState'
 
 export default function LibrariesPage() {
   const { user } = useAuth()
+  const { isLibrarian } = useRole()
   const { data, isLoading } = useQuery({
     queryKey: ['libraries'],
     queryFn: () => librariesApi.list({ limit: 50 }),
   })
 
   if (isLoading) return <PageSpinner />
+
+  // If exactly 1 library and user is a normal member (not librarian/admin), go straight to it
+  if (data?.data.length === 1 && !isLibrarian) {
+    return <Navigate to={`/libraries/${data.data[0].id}`} replace />
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">

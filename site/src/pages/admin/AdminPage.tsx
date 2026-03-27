@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useQueries } from '@tanstack/react-query'
-import { Users2, Users, Library, BookOpen, Layers } from 'lucide-react'
+import { Users2, Users, ClipboardList, Settings } from 'lucide-react'
 import { usersApi } from '../../api/users'
 import { librariesApi } from '../../api/libraries'
 import { shelvesApi } from '../../api/shelves'
@@ -19,23 +19,19 @@ const links = [
     description: 'View and manage all user accounts',
     href: '/admin/users',
   },
+  {
+    icon: ClipboardList,
+    label: 'Audit Log',
+    description: 'Track actions taken by users across the system',
+    href: '/admin/audit',
+  },
+  {
+    icon: Settings,
+    label: 'Settings',
+    description: 'System configuration and preferences',
+    href: '/admin/settings',
+  },
 ]
-
-function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number | undefined }) {
-  return (
-    <div className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-      <div className="rounded-lg bg-blue-50 p-2.5 dark:bg-blue-900/30">
-        <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">
-          {value !== undefined ? value.toLocaleString() : '—'}
-        </p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-      </div>
-    </div>
-  )
-}
 
 export default function AdminPage() {
   const results = useQueries({
@@ -47,7 +43,16 @@ export default function AdminPage() {
     ],
   })
 
-  const [libraries, shelves, books, users] = results.map((r) => (r.data as any)?.meta?.total as number | undefined)
+  const [libraryCount, shelfCount, bookCount, userCount] = results.map(
+    (r) => ((r.data as any)?.meta?.total as number | undefined)
+  )
+
+  const stats = [
+    { label: 'Libraries', value: libraryCount, href: '/manage/libraries' },
+    { label: 'Shelves', value: shelfCount, href: '/manage/libraries' },
+    { label: 'Books', value: bookCount, href: '/manage/books' },
+    { label: 'Users', value: userCount, href: '/admin/users' },
+  ]
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -56,12 +61,20 @@ export default function AdminPage() {
         System-level configuration. These settings affect all users.
       </p>
 
-      {/* Stats */}
-      <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard icon={Library} label="Libraries" value={libraries} />
-        <StatCard icon={Layers} label="Shelves" value={shelves} />
-        <StatCard icon={BookOpen} label="Books" value={books} />
-        <StatCard icon={Users} label="Users" value={users} />
+      {/* Stats — ManagePage style */}
+      <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((s) => (
+          <Link
+            key={s.label}
+            to={s.href}
+            className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+          >
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              {s.value !== undefined ? s.value.toLocaleString() : '…'}
+            </p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{s.label}</p>
+          </Link>
+        ))}
       </div>
 
       {/* Nav cards */}

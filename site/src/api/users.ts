@@ -13,10 +13,13 @@ export const usersApi = {
   update: (id: string, data: { role?: string; isActive?: boolean; firstName?: string; lastName?: string }) =>
     api.patch<User>(`/users/${id}`, data).then((r) => r.data),
 
-  setActive: (id: string, isActive: boolean) =>
-    api.patch<User>(`/users/${id}/active`, { isActive }).then((r) => r.data),
+  setActive: (id: string, isActive: boolean, reason?: string) =>
+    api.patch<User>(`/users/${id}/active`, { isActive, reason }).then((r) => r.data),
 
   revokeSessions: (id: string) => api.post(`/users/${id}/revoke-sessions`),
+
+  resetPassword: (id: string) =>
+    api.post<{ message: string }>(`/users/${id}/reset-password`).then((r) => r.data),
 
   remove: (id: string) => api.delete(`/users/${id}`),
 

@@ -1,9 +1,12 @@
+import crypto from 'crypto'
 import { prisma } from '../../lib/prisma'
 import { hashPassword, comparePassword } from '../../lib/password'
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt'
-import { ConflictError, UnauthorizedError, NotFoundError } from '../../errors'
+import { ConflictError, UnauthorizedError, NotFoundError, BadRequestError } from '../../errors'
 import { env } from '../../config/env'
-import { RegisterInput, LoginInput } from './auth.schemas'
+import { getSetting } from '../../lib/settings'
+import { sendPasswordResetEmail } from '../../lib/mailer'
+import { RegisterInput, LoginInput, ForgotPasswordInput, ResetPasswordTokenInput } from './auth.schemas'
 
 function issueTokens(userId: string, role: string) {
   const payload = { sub: userId, role }
@@ -95,6 +98,42 @@ export async function logout(token: string) {
       data: { revokedAt: new Date() },
     })
   }
+}
+
+export async function forgotPassword(input: ForgotPasswordInput): Promise<void> {
+  const user = await prisma.user.findUnique({ where: { email: input.email } })
+  // Always return success — don't reveal whether email exists
+  if (!user || !user.isActive) return
+
+  // Invalidate existing unused tokens
+  await prisma.passwordResetToken.updateMany({
+    where: { userId: user.id, usedAt: null },
+    data: { usedAt: new Date() },
+  })
+
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+
+  await prisma.passwordResetToken.create({ data: { userId: user.id, token, expiresAt } })
+
+  const baseUrl = (await getSetting('app.baseUrl')) || env.CORS_ORIGIN || 'http://localhost:5173'
+  const resetLink = `${baseUrl}/reset-password?token=${token}`
+
+  await sendPasswordResetEmail(user.email, resetLink)
+}
+
+export async function resetPasswordWithToken(input: ResetPasswordTokenInput): Promise<void> {
+  const record = await prisma.passwordResetToken.findUnique({ where: { token: input.token } })
+  if (!record || record.usedAt || record.expiresAt < new Date()) {
+    throw new BadRequestError('Invalid or expired reset token')
+  }
+
+  const passwordHash = await hashPassword(input.password)
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+    prisma.refreshToken.updateMany({ where: { userId: record.userId }, data: { revokedAt: new Date() } }),
+    prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
+  ])
 }
 
 export async function getMe(userId: string) {

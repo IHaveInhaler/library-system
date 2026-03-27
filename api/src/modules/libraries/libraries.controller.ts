@@ -31,7 +31,10 @@ export async function update(req: Request, res: Response, next: NextFunction): P
 
 export async function remove(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const library = await librariesService.deleteLibrary(req.params.id as string)
+    const library = await librariesService.deleteLibrary(req.params.id as string, {
+      action: req.body?.action,
+      targetLibraryId: req.body?.targetLibraryId,
+    })
     res.json(library)
   } catch (err) { next(err) }
 }

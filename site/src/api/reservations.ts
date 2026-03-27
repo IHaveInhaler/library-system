@@ -7,7 +7,7 @@ export const reservationsApi = {
 
   get: (id: string) => api.get<Reservation>(`/reservations/${id}`).then((r) => r.data),
 
-  create: (data: { bookId: string; notes?: string }) =>
+  create: (data: { bookId: string; userId?: string; notes?: string }) =>
     api.post<Reservation>('/reservations', data).then((r) => r.data),
 
   cancel: (id: string) =>

@@ -13,15 +13,34 @@ model User {
   passwordHash String
   firstName    String
   lastName     String
-  role         String   @default("MEMBER") // MEMBER | LIBRARIAN | ADMIN
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
+  role                String   @default("MEMBER") // MEMBER | LIBRARIAN | ADMIN
+  isActive            Boolean  @default(true)
+  deactivationReason  String?
+  createdAt           DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  loans         Loan[]
-  reservations  Reservation[]
-  refreshTokens RefreshToken[]
-  memberships   LibraryMembership[]
+  loans              Loan[]
+  reservations       Reservation[]
+  refreshTokens      RefreshToken[]
+  memberships        LibraryMembership[]
+  auditLogs          AuditLog[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model RefreshToken {
@@ -153,6 +172,19 @@ model Group {
   order       Int      @default(999) // lower = higher rank; used for role assignment rules
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorName  String?
+  action     String
+  targetType String?
+  targetId   String?
+  targetName String?
+  metadata   String?
+  createdAt  DateTime @default(now())
 }
 
 model Reservation {
