@@ -222,10 +222,15 @@ export async function devSeed() {
   monthEnd.setMonth(monthEnd.getMonth() + 1)
 
   await Promise.all([
+    // Admin: staff at both libraries
+    prisma.libraryMembership.create({ data: { userId: admin.id, libraryId: centralLib.id, membershipType: 'STAFF' } }),
+    prisma.libraryMembership.create({ data: { userId: admin.id, libraryId: westLib.id, membershipType: 'STAFF' } }),
+    // Librarian: staff at both libraries
+    prisma.libraryMembership.create({ data: { userId: librarian.id, libraryId: centralLib.id, membershipType: 'STAFF' } }),
+    prisma.libraryMembership.create({ data: { userId: librarian.id, libraryId: westLib.id, membershipType: 'STAFF' } }),
+    // Member: permanent @ Central, monthly @ West
     prisma.libraryMembership.create({ data: { userId: member.id, libraryId: centralLib.id, membershipType: 'PERMANENT' } }),
     prisma.libraryMembership.create({ data: { userId: member.id, libraryId: westLib.id, membershipType: 'MONTHLY', endDate: monthEnd } }),
-    prisma.libraryMembership.create({ data: { userId: librarian.id, libraryId: centralLib.id, membershipType: 'PERMANENT' } }),
-    prisma.libraryMembership.create({ data: { userId: librarian.id, libraryId: westLib.id, membershipType: 'PERMANENT' } }),
   ])
 
   const [shelf1, shelf2, shelf3, shelf4] = await Promise.all([
