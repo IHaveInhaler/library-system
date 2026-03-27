@@ -726,6 +726,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                     <Button size="sm" onClick={() => createMembership.mutate()} loading={createMembership.isPending}
                       disabled={!memForm.libraryId || (selectedMemType && !selectedMemType.durationDays && !selectedMemType.durationMonths && !selectedMemType.isStaff && selectedMemType.name !== 'PERMANENT' && !memForm.endDate)}>
                       Add Membership
+                    </Button>
                     <Button size="sm" variant="secondary" onClick={() => setAddMem(false)}>Cancel</Button>
                   </div>
                 </div>
