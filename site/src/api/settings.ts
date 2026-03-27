@@ -13,6 +13,7 @@ export type SettingKey =
   | 'reg.token'
   | 'reg.requireApproval'
   | 'reg.requireEmailConfirmation'
+  | 'membership.calendarMonths'
 
 export type SettingsResponse = {
   settings: Record<SettingKey, string>

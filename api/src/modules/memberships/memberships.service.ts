@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma'
 import { NotFoundError, BadRequestError } from '../../errors/index'
+import { getSetting } from '../../lib/settings'
 import { CreateMembershipInput, UpdateMembershipInput } from './memberships.schemas'
 
 export async function listMemberships(libraryId: string) {
@@ -46,12 +47,18 @@ export async function createMembership(libraryId: string, input: CreateMembershi
   let endDate = input.endDate
   if (!endDate && input.membershipType) {
     const mType = await prisma.membershipType.findUnique({ where: { name: input.membershipType } })
-    if (mType) {
+    if (mType && (mType.durationMonths || mType.durationDays)) {
+      const calendarMode = (await getSetting('membership.calendarMonths')) !== 'false' // default true
       const start = new Date(input.startDate ?? new Date())
-      if (mType.durationMonths) {
-        // Calendar month addition (e.g. Jan 10 + 1 month = Feb 10)
+
+      if (mType.durationMonths && calendarMode) {
+        // Calendar month: Jan 14 + 1 month = Feb 14
         endDate = new Date(start)
         endDate.setMonth(endDate.getMonth() + mType.durationMonths)
+      } else if (mType.durationMonths && !calendarMode) {
+        // Flat days fallback: 1 month = 30 days, 12 months = 365 days
+        endDate = new Date(start)
+        endDate.setDate(endDate.getDate() + mType.durationMonths * 30)
       } else if (mType.durationDays) {
         endDate = new Date(start)
         endDate.setDate(endDate.getDate() + mType.durationDays)

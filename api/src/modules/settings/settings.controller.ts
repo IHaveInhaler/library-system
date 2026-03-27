@@ -15,6 +15,7 @@ const ALLOWED_KEYS = [
   'reg.token',
   'reg.requireApproval',
   'reg.requireEmailConfirmation',
+  'membership.calendarMonths',
 ]
 
 async function buildSettingsResponse() {

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users, Globe } from 'lucide-react'
+import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users, Globe, IdCard } from 'lucide-react'
 import { settingsApi, type SettingKey } from '../../api/settings'
 import { setupApi } from '../../api/setup'
 import { useAuthStore } from '../../store/auth'
@@ -210,6 +210,67 @@ function GeneralSettings() {
             <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── Membership Settings Section ───────────────────────────────────────────
+
+function MembershipSettings() {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const [calendarMode, setCalendarMode] = useState(true)
+
+  useEffect(() => {
+    if (data) {
+      // Default is true (calendar mode) — only false if explicitly set to 'false'
+      setCalendarMode(data.settings['membership.calendarMonths'] !== 'false')
+    }
+  }, [data])
+
+  const save = useMutation({
+    mutationFn: () => settingsApi.update({ 'membership.calendarMonths': calendarMode ? 'true' : 'false' }),
+    onSuccess: (res) => { toast.success('Membership settings saved'); qc.setQueryData(['settings'], res) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  if (isLoading) return <div className="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/40">
+          <IdCard className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-gray-900 dark:text-white">Memberships</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">How membership durations are calculated.</p>
+        </div>
+      </div>
+      <div className="space-y-4 p-6">
+        <label className="flex items-center justify-between cursor-pointer">
+          <div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Calendar month mode</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              {calendarMode
+                ? 'Monthly = same day next month (e.g. Jan 14 → Feb 14). Yearly = same day next year.'
+                : 'Monthly = +30 days. Yearly = +365 days.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={calendarMode}
+            onClick={() => setCalendarMode(!calendarMode)}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${calendarMode ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}
+          >
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${calendarMode ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </label>
+        <div className="flex justify-end">
+          <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
+        </div>
       </div>
     </div>
   )
@@ -566,6 +627,7 @@ export default function AdminSettingsPage() {
       <div className="space-y-8">
         <GeneralSettings />
         <SmtpSettings />
+        <MembershipSettings />
         <RegistrationSettings />
         <DeveloperSection />
         <FactoryResetSection />
