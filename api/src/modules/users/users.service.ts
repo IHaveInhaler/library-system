@@ -4,7 +4,7 @@ import { NotFoundError, ForbiddenError, ConflictError, BadRequestError } from '.
 import { hashPassword } from '../../lib/password'
 import { hasPermission } from '../../lib/permissions'
 import { getSetting } from '../../lib/settings'
-import { sendPasswordResetEmail } from '../../lib/mailer'
+import { sendPasswordResetEmail, sendAccountCreatedEmail } from '../../lib/mailer'
 import { CreateUserInput, UpdateUserInput, UsersQueryInput } from './users.schemas'
 
 const safeSelect = {
@@ -14,7 +14,9 @@ const safeSelect = {
   lastName: true,
   role: true,
   isActive: true,
+  emailVerified: true,
   deactivationReason: true,
+  activationReason: true,
   createdAt: true,
   updatedAt: true,
 } as const
@@ -23,11 +25,26 @@ export async function createUser(input: CreateUserInput) {
   const existing = await prisma.user.findUnique({ where: { email: input.email } })
   if (existing) throw new ConflictError('A user with that email already exists')
 
-  const passwordHash = await hashPassword(input.password)
-  return prisma.user.create({
+  // Create with a random unusable password — user will set their own via the invite link
+  const placeholder = crypto.randomBytes(32).toString('hex')
+  const passwordHash = await hashPassword(placeholder)
+
+  const user = await prisma.user.create({
     data: { email: input.email, passwordHash, firstName: input.firstName, lastName: input.lastName, role: input.role },
     select: safeSelect,
   })
+
+  // Generate a "set password" token (24h expiry) and send invite email
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+  await prisma.passwordResetToken.create({ data: { userId: user.id, token, expiresAt } })
+
+  const baseUrl = (await getSetting('app.baseUrl')) || process.env.CORS_ORIGIN || 'http://localhost:5173'
+  const setPasswordLink = `${baseUrl}/reset-password?token=${token}`
+
+  await sendAccountCreatedEmail(user.email, setPasswordLink)
+
+  return user
 }
 
 export async function listUsers(query: UsersQueryInput) {
@@ -96,6 +113,7 @@ export async function setUserActive(id: string, isActive: boolean, reason?: stri
     data: {
       isActive,
       deactivationReason: isActive ? null : (reason ?? null),
+      activationReason: isActive ? (reason ?? null) : null,
     },
     select: safeSelect,
   })
@@ -114,6 +132,14 @@ export async function deleteUser(id: string) {
 
 export async function resetUserPassword(id: string): Promise<{ message: string }> {
   const user = await getUser(id)
+
+  // Replace password with a random unusable hash so the user can't log in until they set a new one
+  const placeholder = crypto.randomBytes(32).toString('hex')
+  const passwordHash = await hashPassword(placeholder)
+  await prisma.user.update({ where: { id }, data: { passwordHash } })
+
+  // Revoke all sessions
+  await prisma.refreshToken.updateMany({ where: { userId: id }, data: { revokedAt: new Date() } })
 
   // Invalidate any existing unused reset tokens
   await prisma.passwordResetToken.updateMany({

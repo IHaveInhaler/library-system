@@ -10,6 +10,11 @@ const ALLOWED_KEYS = [
   'smtp.pass',
   'smtp.from',
   'app.baseUrl',
+  'reg.mode',
+  'reg.allowedDomain',
+  'reg.token',
+  'reg.requireApproval',
+  'reg.requireEmailConfirmation',
 ]
 
 async function buildSettingsResponse() {
@@ -27,6 +32,18 @@ async function buildSettingsResponse() {
   }
 
   return { settings, locked }
+}
+
+// Public endpoint — returns only registration-related settings (no auth required)
+export async function getPublicSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const PUBLIC_KEYS = ['reg.mode', 'reg.allowedDomain']
+    const rows = await prisma.systemSetting.findMany({ where: { key: { in: PUBLIC_KEYS } } })
+    const settings: Record<string, string> = {}
+    for (const row of rows) settings[row.key] = row.value
+    for (const k of PUBLIC_KEYS) if (!(k in settings)) settings[k] = ''
+    res.json({ settings })
+  } catch (err) { next(err) }
 }
 
 export async function getSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {

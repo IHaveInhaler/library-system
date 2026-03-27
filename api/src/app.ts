@@ -16,6 +16,9 @@ import permissionsRouter from './modules/permissions/permissions.router'
 import groupsRouter from './modules/groups/groups.router'
 import auditRouter from './modules/audit/audit.router'
 import settingsRouter from './modules/settings/settings.router'
+import { getPublicSettings } from './modules/settings/settings.controller'
+import membershipTypesRouter from './modules/membershipTypes/membershipTypes.router'
+import setupRouter from './modules/setup/setup.router'
 
 export function createApp() {
   const app = express()
@@ -35,8 +38,11 @@ export function createApp() {
   app.use('/api/reservations', authenticate, reservationsRouter)
   app.use('/api/permissions', permissionsRouter)
   app.use('/api/groups', groupsRouter)
+  app.use('/api/membership-types', membershipTypesRouter)
   app.use('/api/audit', authenticate, auditRouter)
+  app.get('/api/settings/public', getPublicSettings)
   app.use('/api/settings', authenticate, settingsRouter)
+  app.use('/api/setup', setupRouter)
 
   app.use(errorHandler)
 

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useQueries } from '@tanstack/react-query'
-import { Users2, Users, ClipboardList, Settings } from 'lucide-react'
+import { Users2, Users, ClipboardList, Settings, IdCard } from 'lucide-react'
 import { usersApi } from '../../api/users'
 import { librariesApi } from '../../api/libraries'
 import { shelvesApi } from '../../api/shelves'
@@ -12,6 +12,12 @@ const links = [
     label: 'Groups',
     description: 'Create and manage roles / groups and their permissions',
     href: '/admin/groups',
+  },
+  {
+    icon: IdCard,
+    label: 'Membership Types',
+    description: 'Define membership types — permanent, monthly, staff, custom',
+    href: '/admin/membership-types',
   },
   {
     icon: Users,

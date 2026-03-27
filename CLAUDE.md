@@ -6,7 +6,16 @@ site will interact with that ui
 
 ## Service Context
 
-When helping with any service in this project, always provide the relevant start command so the user knows how to run it. For example:
+The recommended way to start the project is via Docker Compose so that logs are centralised:
+
+```bash
+docker-compose up --build        # first run / after changes
+docker-compose up                # subsequent runs
+docker-compose logs -f           # tail all logs
+docker-compose logs -f api       # tail API logs only
+```
+
+Individual services can still be run for development:
 
 - API: `cd api && npm run dev` (runs on http://localhost:3000)
 - Database GUI: `cd api && npm run db:studio` (runs on http://localhost:5555)
@@ -58,6 +67,21 @@ Always consult `site/plan.md` before adding new pages or components to stay alig
 - New components are introduced
 - The routing structure changes
 - Dark mode coverage needs updating
+
+## Design Guidelines
+
+The frontend design language is documented in `site/web-design.md`. It covers:
+- Color palette (dark-first), spacing, layout containers
+- Component patterns: cards, section cards, stat cards, expandable cards, tables
+- Buttons, inputs, modals, badges, toggles, alerts, empty states
+- Navbar, step indicators, auth page layouts
+- Anti-patterns to avoid
+
+Always consult `site/web-design.md` before creating or modifying frontend components. Every page must follow these guidelines. Dark mode is the priority.
+
+## Environment Files
+
+When adding or changing environment variables in `.env`, always update `.env.example` (project root) and `api/.env.example` to match. These files document all available env vars for new setups.
 
 ## Docker
 

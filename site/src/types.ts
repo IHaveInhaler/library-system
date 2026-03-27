@@ -23,7 +23,9 @@ export interface User {
   lastName: string
   role: Role
   isActive: boolean
+  emailVerified: boolean
   deactivationReason?: string | null
+  activationReason?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -40,13 +42,11 @@ export interface Library {
   _count?: { shelves: number }
 }
 
-export type MembershipType = 'PERMANENT' | 'MONTHLY' | 'FIXED'
-
 export interface LibraryMembership {
   id: string
   userId: string
   libraryId: string
-  membershipType: MembershipType
+  membershipType: string
   startDate: string
   endDate?: string
   isActive: boolean
@@ -54,6 +54,7 @@ export interface LibraryMembership {
   createdAt: string
   updatedAt: string
   user?: { id: string; firstName: string; lastName: string; email: string; role: string }
+  type?: { id: string; name: string; label: string; durationDays: number | null; isStaff: boolean }
 }
 
 export interface Shelf {

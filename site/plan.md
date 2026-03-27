@@ -25,6 +25,28 @@ npm run dev   # http://localhost:5173
 
 ## Pages & Routes
 
+### Setup Wizard
+
+| Route | Page | Description |
+|---|---|---|
+| `/setup` | SetupWizard | First-run wizard — shown when API reports `needsSetup: true`. All other routes redirect here until setup is complete. |
+
+**Steps:**
+
+| # | Step | Component | Description |
+|---|------|-----------|-------------|
+| 1 | Welcome & Verify | `WelcomeStep` | Intro text. "Generate Code" button calls `POST /api/setup/generate-code` (code printed to server console/docker logs). User enters the 6-digit code → `POST /api/setup/verify-code` → stores setupToken. |
+| 2 | Create Admin | `AdminStep` | Email, password, first name, last name form. `POST /api/setup/admin` with `X-Setup-Token` header. On success, auto-logs in (stores JWT). |
+| 3 | Create Library | `LibraryStep` | Name, label prefix, email, private toggle. Uses `POST /api/libraries`. Can add multiple; must create at least one. |
+| 4 | Groups | `GroupsStep` | Shows recommended groups (LIBRARIAN, MEMBER). Edit permissions, add custom. Skippable. |
+| 5 | Membership Types | `MembershipTypesStep` | Shows built-in types (Staff, Permanent, Monthly, Yearly, Fixed). Option to add custom types. Skippable. |
+| 6 | SMTP | `SmtpStep` | Same fields as AdminSettingsPage SMTP section. Uses `PATCH /api/settings`. Skippable. |
+| 7 | Complete | `CompleteStep` | Summary of what was created. "Go to Dashboard" calls `POST /api/setup/complete` then navigates to `/`. |
+
+**Files:**
+- `site/src/api/setup.ts` — API client
+- `site/src/pages/setup/SetupWizard.tsx` — stepper container + step components
+
 ### Public
 
 | Route | Page | Description |
@@ -62,9 +84,33 @@ npm run dev   # http://localhost:5173
 
 | Route | Page | Description |
 |---|---|---|
-| `/admin` | Admin Hub | Hub page linking to Permissions and Groups (mirrors Manage page layout) |
+| `/admin` | Admin Hub | Hub page linking to Permissions, Groups, Membership Types, Settings |
 | `/admin/permissions` | Admin — Permissions | Role permission matrix; toggle which actions each role (MEMBER, LIBRARIAN) can perform; ADMIN permissions are always locked on |
 | `/admin/groups` | Admin — Groups | Create/manage groups (roles); expand each group to toggle its permissions inline; delete custom groups |
+| `/admin/membership-types` | Admin — Membership Types | Create/manage membership types (Permanent, Monthly, Yearly, Fixed, Staff, custom). Edit label, duration, staff flag. Reorder. Built-in types cannot be deleted. |
+
+### Admin Settings Sections (`/admin/settings`)
+
+| Section | Description |
+|---|---|
+| Email / SMTP | SMTP host, port, user, pass, from address. Env-lockable. |
+| Registration | Mode selector (open/domain/token/disabled), allowed domain input, token display (auto-generated), "require approval" toggle, "require email confirmation" toggle |
+| Developer Mode | Toggle dev mode on/off. Shows seeded account list when on + seeded. |
+| Factory Reset | Type "confirm" to wipe DB and restart setup wizard. |
+
+### Registration Flow
+
+When `reg.requireEmailConfirmation` is on:
+1. User submits registration form (with optional `registrationToken` if mode=token)
+2. Account is created but `emailVerified` is false
+3. A 6-digit code is emailed (or logged to console)
+4. User is shown a code input page (`/verify-email`) — enters the code
+5. On success, `emailVerified` = true. If `reg.requireApproval` is also on, account stays inactive until admin activates.
+
+When `reg.requireApproval` is on:
+- Account is created with `isActive: false`, `deactivationReason: "Awaiting approval"`
+- User sees a "pending approval" message after registering
+- Admin activates from `/manage/users` with an optional activation reason
 
 ---
 

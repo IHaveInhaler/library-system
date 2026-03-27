@@ -10,6 +10,7 @@ import { librariesApi } from '../../api/libraries'
 import { booksApi } from '../../api/books'
 import { loansApi } from '../../api/loans'
 import { reservationsApi } from '../../api/reservations'
+import { membershipTypesApi } from '../../api/membershipTypes'
 import { PageSpinner } from '../../components/ui/Spinner'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Pagination } from '../../components/ui/Pagination'
@@ -35,15 +36,15 @@ function RoleBadge({ role }: { role: string }) {
 function AddUserModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient()
   const { data: groups } = useGroups()
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'MEMBER' })
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', role: 'MEMBER' })
 
   const create = useMutation({
     mutationFn: () => usersApi.create(form),
     onSuccess: () => {
-      toast.success('User created')
+      toast.success('User created — password invite sent')
       qc.invalidateQueries({ queryKey: ['users'] })
       onClose()
-      setForm({ firstName: '', lastName: '', email: '', password: '', role: 'MEMBER' })
+      setForm({ firstName: '', lastName: '', email: '', role: 'MEMBER' })
     },
     onError: (err) => toast.error(extractError(err)),
   })
@@ -56,7 +57,9 @@ function AddUserModal({ open, onClose }: { open: boolean; onClose: () => void })
           <Input label="Last name" value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
         </div>
         <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-        <Input label="Password" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          The user will receive an email to set their password. If SMTP is not configured, the link will be logged to the server console.
+        </p>
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
           <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}
@@ -67,8 +70,8 @@ function AddUserModal({ open, onClose }: { open: boolean; onClose: () => void })
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={onClose}>Cancel</Button>
           <Button onClick={() => create.mutate()} loading={create.isPending}
-            disabled={!form.firstName || !form.lastName || !form.email || !form.password}>
-            Create
+            disabled={!form.firstName || !form.lastName || !form.email}>
+            Create & Send Invite
           </Button>
         </div>
       </div>
@@ -309,6 +312,54 @@ function FulfillReservationModal({ reservation, open, onClose, onSuccess }: { re
   )
 }
 
+// ── Activate Modal ────────────────────────────────────────────────────────────
+function ActivateModal({ user, open, onClose, onConfirm }: {
+  user: User
+  open: boolean
+  onClose: () => void
+  onConfirm: (reason?: string) => void
+}) {
+  const [reason, setReason] = useState('')
+
+  const handleClose = () => { setReason(''); onClose() }
+
+  return (
+    <Modal open={open} onClose={handleClose} title="Activate Account">
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Activate <span className="font-semibold text-gray-900 dark:text-white">{user.firstName} {user.lastName}</span>'s account.
+          They will be able to log in again.
+        </p>
+        {user.deactivationReason && (
+          <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Deactivation reason</p>
+            <p className="mt-0.5 text-sm text-gray-700 dark:text-gray-300">{user.deactivationReason}</p>
+          </div>
+        )}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Reason <span className="text-gray-400">(optional)</span>
+          </label>
+          <textarea
+            autoFocus
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Approved by admin, review completed…"
+            rows={2}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={handleClose}>Cancel</Button>
+          <Button onClick={() => { onConfirm(reason.trim() || undefined); setReason('') }}>
+            Activate Account
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ── Deactivate Modal ───────────────────────────────────────────────────────────
 function DeactivateModal({ user, open, onClose, onConfirm }: {
   user: User
@@ -366,6 +417,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
   const [issueLoanOpen, setIssueLoanOpen] = useState(false)
   const [makeReservationOpen, setMakeReservationOpen] = useState(false)
   const [fulfillTarget, setFulfillTarget] = useState<Reservation | null>(null)
+  const [activateOpen, setActivateOpen] = useState(false)
   const [deactivateOpen, setDeactivateOpen] = useState(false)
   const [resetSent, setResetSent] = useState(false)
 
@@ -442,6 +494,12 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
     queryFn: () => librariesApi.list({ limit: 100 }),
     enabled: addMem,
   })
+  const { data: memTypes } = useQuery({
+    queryKey: ['membership-types'],
+    queryFn: membershipTypesApi.list,
+    enabled: addMem,
+  })
+  const selectedMemType = memTypes?.find((t) => t.name === memForm.membershipType)
 
   const createMembership = useMutation({
     mutationFn: () => librariesApi.memberships.create(memForm.libraryId, {
@@ -488,7 +546,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
               className={`px-4 py-2.5 text-sm font-medium capitalize transition-colors ${tab === t
                 ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
                 : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'}`}>
-              {t === 'libraries' ? 'Library Access' : t}
+              {t === 'libraries' ? 'Memberships' : t}
             </button>
           ))}
         </div>
@@ -531,7 +589,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                     variant="secondary"
                     disabled={isSelf}
                     title={isSelf ? 'Cannot change your own account status' : undefined}
-                    onClick={() => user.isActive ? setDeactivateOpen(true) : toggleActive.mutate(undefined)}
+                    onClick={() => user.isActive ? setDeactivateOpen(true) : setActivateOpen(true)}
                     loading={toggleActive.isPending}
                   >
                     {user.isActive ? 'Deactivate' : 'Activate'}
@@ -579,16 +637,16 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
             </div>
           )}
 
-          {/* ── Library Access ── */}
+          {/* ── Library Memberships ── */}
           {tab === 'libraries' && (
             <div className="space-y-4">
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Libraries this user has been granted access to. Private libraries require explicit access.
+                Library memberships for this user. Staff memberships grant management access.
               </p>
               {!memberships ? <PageSpinner /> : memberships.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gray-200 py-8 text-center dark:border-gray-700">
                   <Library className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No library access granted.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No library memberships.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -600,10 +658,13 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">{(m as any).library?.name ?? m.libraryId}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {m.membershipType}
-                            {m.endDate && ` · expires ${new Date(m.endDate).toLocaleDateString()}`}
-                          </p>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <span>{m.type?.label ?? m.membershipType}</span>
+                            {m.type?.isStaff && (
+                              <span className="rounded bg-blue-100 px-1 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">Staff</span>
+                            )}
+                            {m.endDate && <span>· expires {new Date(m.endDate).toLocaleDateString()}</span>}
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -621,7 +682,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
 
               {addMem ? (
                 <div className="space-y-3 rounded-lg border border-dashed border-gray-300 p-4 dark:border-gray-600">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Grant library access</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Add membership</p>
                   <div className="flex flex-col gap-1">
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Library</label>
                     <select value={memForm.libraryId} onChange={(e) => setMemForm({ ...memForm, libraryId: e.target.value })}
@@ -631,23 +692,32 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Access type</label>
-                    <select value={memForm.membershipType} onChange={(e) => setMemForm({ ...memForm, membershipType: e.target.value })}
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Membership type</label>
+                    <select value={memForm.membershipType} onChange={(e) => setMemForm({ ...memForm, membershipType: e.target.value, endDate: '' })}
                       className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-                      {['PERMANENT', 'MONTHLY', 'FIXED'].map((t) => <option key={t} value={t}>{t}</option>)}
+                      {(memTypes ?? []).map((t) => (
+                        <option key={t.name} value={t.name}>
+                          {t.label}{t.isStaff ? ' (Staff)' : ''}{t.durationDays ? ` — ${t.durationDays} days` : ''}
+                        </option>
+                      ))}
                     </select>
                   </div>
-                  {memForm.membershipType === 'FIXED' && (
+                  {selectedMemType && !selectedMemType.durationDays && selectedMemType.name !== 'PERMANENT' && selectedMemType.name !== 'STAFF' && (
                     <Input label="End date" type="date" value={memForm.endDate} onChange={(e) => setMemForm({ ...memForm, endDate: e.target.value })} />
                   )}
+                  {selectedMemType?.durationDays && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      End date will be auto-set to {selectedMemType.durationDays} days from today.
+                    </p>
+                  )}
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => createMembership.mutate()} loading={createMembership.isPending} disabled={!memForm.libraryId}>Grant Access</Button>
+                    <Button size="sm" onClick={() => createMembership.mutate()} loading={createMembership.isPending} disabled={!memForm.libraryId}>Add Membership</Button>
                     <Button size="sm" variant="secondary" onClick={() => setAddMem(false)}>Cancel</Button>
                   </div>
                 </div>
               ) : (
                 <Button variant="secondary" onClick={() => setAddMem(true)}>
-                  <Plus className="h-4 w-4" /> Grant library access
+                  <Plus className="h-4 w-4" /> Add Membership
                 </Button>
               )}
             </div>
@@ -733,6 +803,12 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
           )}
         </div>
       </div>
+      <ActivateModal
+        user={user}
+        open={activateOpen}
+        onClose={() => setActivateOpen(false)}
+        onConfirm={(reason) => { toggleActive.mutate(reason); setActivateOpen(false) }}
+      />
       <DeactivateModal
         user={user}
         open={deactivateOpen}

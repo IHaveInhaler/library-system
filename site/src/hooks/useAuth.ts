@@ -34,8 +34,11 @@ export function useRegister() {
 
   return useMutation({
     mutationFn: authApi.register,
-    onSuccess: (data) => {
-      setAuth(data.user, data.accessToken, data.refreshToken)
+    onSuccess: (data: any) => {
+      // Only set auth if we got tokens (not pending email/approval)
+      if (data.accessToken) {
+        setAuth(data.user, data.accessToken, data.refreshToken)
+      }
     },
   })
 }

@@ -8,6 +8,11 @@ export type SettingKey =
   | 'smtp.pass'
   | 'smtp.from'
   | 'app.baseUrl'
+  | 'reg.mode'
+  | 'reg.allowedDomain'
+  | 'reg.token'
+  | 'reg.requireApproval'
+  | 'reg.requireEmailConfirmation'
 
 export type SettingsResponse = {
   settings: Record<SettingKey, string>
@@ -16,6 +21,7 @@ export type SettingsResponse = {
 
 export const settingsApi = {
   get: () => api.get<SettingsResponse>('/settings').then((r) => r.data),
+  getPublic: () => api.get<{ settings: Record<string, string> }>('/settings/public').then((r) => r.data),
   update: (data: Partial<Record<SettingKey, string>>) =>
     api.patch<SettingsResponse>('/settings', data).then((r) => r.data),
 }

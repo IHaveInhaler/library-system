@@ -2,7 +2,7 @@ import { api } from './client'
 import type { User, Loan, Reservation, PaginatedResponse } from '../types'
 
 export const usersApi = {
-  create: (data: { email: string; password: string; firstName: string; lastName: string; role?: string }) =>
+  create: (data: { email: string; firstName: string; lastName: string; role?: string }) =>
     api.post<User>('/users', data).then((r) => r.data),
 
   list: (params: { page?: number; limit?: number; role?: string; search?: string; isActive?: string } = {}) =>

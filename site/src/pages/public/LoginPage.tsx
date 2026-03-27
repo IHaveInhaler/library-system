@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -5,6 +6,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
 import { BookOpen } from 'lucide-react'
 import { useLogin } from '../../hooks/useAuth'
+import { setupApi } from '../../api/setup'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { extractError } from '../../api/client'
@@ -16,11 +18,22 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
+const DEV_ACCOUNTS = [
+  { label: 'Admin', email: 'admin@library.com', password: 'Admin1234!' },
+  { label: 'Librarian', email: 'librarian@library.com', password: 'Librarian1!' },
+  { label: 'Member', email: 'member@library.com', password: 'Member123!' },
+]
+
 export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as any)?.from?.pathname ?? '/dashboard'
   const login = useLogin()
+  const [showDevAccounts, setShowDevAccounts] = useState(false)
+
+  useEffect(() => {
+    setupApi.status().then((s) => setShowDevAccounts(s.devMode && s.devSeeded)).catch(() => {})
+  }, [])
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -62,34 +75,31 @@ export default function LoginPage() {
           <Link to="/register" className="font-medium text-blue-600 hover:underline dark:text-blue-400">Register</Link>
         </p>
 
-        {/* Dev credentials — remove before production */}
-        <div className="mt-6 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-800/50">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Dev accounts</p>
-          <div className="space-y-1.5">
-            {[
-              { label: 'Admin', email: 'admin@library.com', password: 'Admin1234!' },
-              { label: 'Librarian', email: 'librarian@library.com', password: 'Librarian1!' },
-              { label: 'Member', email: 'member@library.com', password: 'Member123!' },
-            ].map(({ label, email, password }) => (
-              <button
-                key={label}
-                type="button"
-                onClick={async () => {
-                  try {
-                    await login.mutateAsync({ email, password })
-                    navigate(from, { replace: true })
-                  } catch (err) {
-                    toast.error(extractError(err))
-                  }
-                }}
-                className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-700 dark:hover:bg-blue-900/20"
-              >
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
-                <span className="font-mono text-xs text-gray-400 dark:text-gray-500">{email}</span>
-              </button>
-            ))}
+        {showDevAccounts && (
+          <div className="mt-6 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-800/50">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Dev accounts</p>
+            <div className="space-y-1.5">
+              {DEV_ACCOUNTS.map(({ label, email, password }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await login.mutateAsync({ email, password })
+                      navigate(from, { replace: true })
+                    } catch (err) {
+                      toast.error(extractError(err))
+                    }
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-left transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-700 dark:hover:bg-blue-900/20"
+                >
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{label}</span>
+                  <span className="font-mono text-xs text-gray-400 dark:text-gray-500">{email}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

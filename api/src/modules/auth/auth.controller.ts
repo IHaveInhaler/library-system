@@ -19,6 +19,15 @@ export async function register(req: Request, res: Response, next: NextFunction):
   }
 }
 
+export async function verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await authService.verifyEmail(req.body.email, req.body.code)
+    res.json(result)
+  } catch (err) {
+    next(err)
+  }
+}
+
 export async function login(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await authService.login(req.body)
