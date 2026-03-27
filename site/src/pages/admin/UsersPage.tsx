@@ -497,7 +497,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
   const { data: memTypes } = useQuery({
     queryKey: ['membership-types'],
     queryFn: membershipTypesApi.list,
-    enabled: addMem,
+    enabled: tab === 'libraries',
   })
   const selectedMemType = memTypes?.find((t) => t.name === memForm.membershipType)
 
