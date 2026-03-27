@@ -695,23 +695,37 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                     <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Membership type</label>
                     <select value={memForm.membershipType} onChange={(e) => setMemForm({ ...memForm, membershipType: e.target.value, endDate: '' })}
                       className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-                      {(memTypes ?? []).map((t) => (
-                        <option key={t.name} value={t.name}>
-                          {t.label}{t.isStaff ? ' (Staff)' : ''}{t.durationDays ? ` — ${t.durationDays} days` : ''}
-                        </option>
-                      ))}
+                      {(memTypes ?? []).map((t) => {
+                        const dur = t.durationMonths
+                          ? `${t.durationMonths} month${t.durationMonths > 1 ? 's' : ''}`
+                          : t.durationDays
+                            ? `${t.durationDays} days`
+                            : ''
+                        return (
+                          <option key={t.name} value={t.name}>
+                            {t.label}{t.isStaff ? ' (Staff)' : ''}{dur ? ` — ${dur}` : ''}
+                          </option>
+                        )
+                      })}
                     </select>
                   </div>
-                  {selectedMemType && !selectedMemType.durationDays && selectedMemType.name !== 'PERMANENT' && selectedMemType.name !== 'STAFF' && (
-                    <Input label="End date" type="date" value={memForm.endDate} onChange={(e) => setMemForm({ ...memForm, endDate: e.target.value })} />
+                  {selectedMemType && !selectedMemType.durationDays && !selectedMemType.durationMonths && !selectedMemType.isStaff && selectedMemType.name !== 'PERMANENT' && (
+                    <>
+                      <Input label="End date" type="date" value={memForm.endDate} onChange={(e) => setMemForm({ ...memForm, endDate: e.target.value })} />
+                      {!memForm.endDate && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400">An end date is required for fixed-term memberships.</p>
+                      )}
+                    </>
                   )}
-                  {selectedMemType?.durationDays && (
+                  {(selectedMemType?.durationMonths || selectedMemType?.durationDays) && (
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      End date will be auto-set to {selectedMemType.durationDays} days from today.
+                      End date will be auto-set to {selectedMemType.durationMonths ? `${selectedMemType.durationMonths} calendar month${selectedMemType.durationMonths > 1 ? 's' : ''}` : `${selectedMemType.durationDays} days`} from today.
                     </p>
                   )}
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => createMembership.mutate()} loading={createMembership.isPending} disabled={!memForm.libraryId}>Add Membership</Button>
+                    <Button size="sm" onClick={() => createMembership.mutate()} loading={createMembership.isPending}
+                      disabled={!memForm.libraryId || (selectedMemType && !selectedMemType.durationDays && !selectedMemType.durationMonths && !selectedMemType.isStaff && selectedMemType.name !== 'PERMANENT' && !memForm.endDate)}>
+                      Add Membership
                     <Button size="sm" variant="secondary" onClick={() => setAddMem(false)}>Cancel</Button>
                   </div>
                 </div>

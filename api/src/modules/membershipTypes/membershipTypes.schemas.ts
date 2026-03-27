@@ -4,12 +4,14 @@ export const createMembershipTypeSchema = z.object({
   name: z.string().regex(/^[A-Z][A-Z0-9_]*$/, 'Uppercase letters, digits, underscores — must start with a letter'),
   label: z.string().min(1).max(100),
   durationDays: z.number().int().min(1).nullable().optional(),
+  durationMonths: z.number().int().min(1).nullable().optional(),
   isStaff: z.boolean().optional().default(false),
 })
 
 export const updateMembershipTypeSchema = z.object({
   label: z.string().min(1).max(100).optional(),
   durationDays: z.number().int().min(1).nullable().optional(),
+  durationMonths: z.number().int().min(1).nullable().optional(),
   isStaff: z.boolean().optional(),
 })
 

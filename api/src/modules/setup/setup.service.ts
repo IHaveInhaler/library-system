@@ -203,8 +203,8 @@ export async function devSeed() {
   // Ensure LIBRARIAN and MEMBER groups exist
   for (const g of [
     { name: 'ADMIN', description: 'Full system access', isBuiltIn: true, order: 1 },
-    { name: 'LIBRARIAN', description: 'Manage books, loans, shelves, and members', isBuiltIn: true, order: 2 },
-    { name: 'MEMBER', description: 'Browse catalogue, place reservations', isBuiltIn: true, order: 3 },
+    { name: 'LIBRARIAN', description: 'Manage books, loans, shelves, and members', isBuiltIn: false, order: 2 },
+    { name: 'MEMBER', description: 'Browse catalogue, place reservations', isBuiltIn: false, order: 3 },
   ]) {
     await prisma.group.upsert({
       where: { name: g.name },

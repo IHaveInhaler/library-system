@@ -5,6 +5,7 @@ export interface MembershipType {
   name: string
   label: string
   durationDays: number | null
+  durationMonths: number | null
   isStaff: boolean
   isBuiltIn: boolean
   order: number

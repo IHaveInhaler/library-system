@@ -5,8 +5,6 @@ import { CreateGroupInput, UpdateGroupInput, ReorderGroupsInput } from './groups
 
 const BUILT_IN_GROUPS = [
   { name: 'ADMIN', order: 1 },
-  { name: 'LIBRARIAN', order: 2 },
-  { name: 'MEMBER', order: 3 },
 ] as const
 
 async function ensureBuiltInsExist() {

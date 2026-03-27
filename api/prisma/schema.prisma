@@ -81,15 +81,16 @@ model Library {
 }
 
 model MembershipType {
-  id           String  @id @default(uuid())
-  name         String  @unique // e.g. PERMANENT, MONTHLY, STAFF
-  label        String  // Display name
-  durationDays Int?    // null = no auto-expiry
-  isStaff      Boolean @default(false) // grants library management access
-  isBuiltIn    Boolean @default(false)
-  order        Int     @default(999)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String  @id @default(uuid())
+  name           String  @unique // e.g. PERMANENT, MONTHLY, STAFF
+  label          String  // Display name
+  durationDays   Int?    // Flat days — null = no auto-expiry
+  durationMonths Int?    // Calendar months — takes precedence over durationDays if set
+  isStaff        Boolean @default(false) // grants library management access
+  isBuiltIn      Boolean @default(false)
+  order          Int     @default(999)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   memberships LibraryMembership[]
 }

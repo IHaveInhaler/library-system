@@ -18,6 +18,7 @@ export async function createMembershipType(input: CreateMembershipTypeInput) {
       name: input.name,
       label: input.label,
       durationDays: input.durationDays ?? null,
+      durationMonths: input.durationMonths ?? null,
       isStaff: input.isStaff ?? false,
       order,
     },
@@ -38,6 +39,7 @@ export async function updateMembershipType(id: string, input: UpdateMembershipTy
     data: {
       ...(input.label !== undefined && { label: input.label }),
       ...(input.durationDays !== undefined && { durationDays: input.durationDays }),
+      ...(input.durationMonths !== undefined && { durationMonths: input.durationMonths }),
       ...(input.isStaff !== undefined && { isStaff: input.isStaff }),
     },
   })

@@ -36,14 +36,20 @@ export async function createMembership(libraryId: string, input: CreateMembershi
     where: { userId_libraryId: { userId: input.userId, libraryId } },
   })
 
-  // Auto-compute endDate from MembershipType.durationDays if not provided
+  // Auto-compute endDate from MembershipType duration if not provided
   let endDate = input.endDate
   if (!endDate && input.membershipType) {
     const mType = await prisma.membershipType.findUnique({ where: { name: input.membershipType } })
-    if (mType?.durationDays) {
-      const start = input.startDate ?? new Date()
-      endDate = new Date(start)
-      endDate.setDate(endDate.getDate() + mType.durationDays)
+    if (mType) {
+      const start = new Date(input.startDate ?? new Date())
+      if (mType.durationMonths) {
+        // Calendar month addition (e.g. Jan 10 + 1 month = Feb 10)
+        endDate = new Date(start)
+        endDate.setMonth(endDate.getMonth() + mType.durationMonths)
+      } else if (mType.durationDays) {
+        endDate = new Date(start)
+        endDate.setDate(endDate.getDate() + mType.durationDays)
+      }
     }
   }
 

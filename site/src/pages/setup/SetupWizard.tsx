@@ -599,7 +599,7 @@ function GroupsStep({ onNext }: { onNext: () => void }) {
       <div className="space-y-3">
         {groups.map((g, idx) => (
           <div
-            key={g.name}
+            key={idx}
             className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800"
           >
             {/* Header */}
