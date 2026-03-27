@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma'
 import { hashPassword } from '../../lib/password'
 import { signAccessToken, signRefreshToken } from '../../lib/jwt'
 import { generateShelfLabel } from '../../lib/shelfLabel'
+import { fetchByIsbn } from '../../lib/openLibrary'
 import { env } from '../../config/env'
 import { ForbiddenError, UnauthorizedError, ConflictError } from '../../errors'
 
@@ -240,11 +241,24 @@ export async function devSeed() {
     prisma.shelf.create({ data: { code: 'FIC-01', label: generateShelfLabel('WST', 'L'), position: 'L', genre: 'FICTION', location: 'Ground floor, main hall', libraryId: westLib.id } }),
   ])
 
-  const [book1, book2, book3] = await Promise.all([
-    prisma.book.create({ data: { isbn: '9780743273565', title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', publisher: 'Scribner', publishedYear: 1925, genre: 'FICTION', description: 'A novel about Jay Gatsby.', totalPages: 180 } }),
-    prisma.book.create({ data: { isbn: '9780374529550', title: 'A Brief History of Time', author: 'Stephen Hawking', publisher: 'Bantam Books', publishedYear: 1988, genre: 'SCIENCE', description: 'Origins and fate of the universe.', totalPages: 212 } }),
-    prisma.book.create({ data: { isbn: '9780134685991', title: 'The Pragmatic Programmer', author: 'David Thomas, Andrew Hunt', publisher: 'Addison-Wesley', publishedYear: 2019, genre: 'TECHNOLOGY', description: 'Essential software development wisdom.', totalPages: 352 } }),
-  ])
+  // Seed books by ISBN — fetch metadata from Open Library for covers + descriptions
+  const seedIsbns = [
+    { isbn: '9780743273565', genre: 'FICTION', fallback: { title: 'The Great Gatsby', author: 'F. Scott Fitzgerald' } },
+    { isbn: '9780374529550', genre: 'SCIENCE', fallback: { title: 'A Brief History of Time', author: 'Stephen Hawking' } },
+    { isbn: '9780134685991', genre: 'TECHNOLOGY', fallback: { title: 'The Pragmatic Programmer', author: 'David Thomas, Andrew Hunt' } },
+  ]
+
+  const books = []
+  for (const { isbn, genre, fallback } of seedIsbns) {
+    let data: any
+    try {
+      const meta = await fetchByIsbn(isbn)
+      data = meta ? { isbn: meta.isbn, title: meta.title, author: meta.author, publisher: meta.publisher, publishedYear: meta.publishedYear, genre, description: meta.description, coverUrl: meta.coverUrl, totalPages: meta.totalPages, language: meta.language } : null
+    } catch { data = null }
+    if (!data) data = { isbn, title: fallback.title, author: fallback.author, genre, language: 'en' }
+    books.push(await prisma.book.create({ data }))
+  }
+  const [book1, book2, book3] = books
 
   await Promise.all([
     prisma.bookCopy.create({ data: { barcode: 'CC-GG-001', bookId: book1.id, shelfId: shelf1.id } }),

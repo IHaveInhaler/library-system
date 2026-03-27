@@ -26,6 +26,7 @@ export interface User {
   emailVerified: boolean
   deactivationReason?: string | null
   activationReason?: string | null
+  staffLibraryIds?: string[] | null  // null = admin (all libraries), [] = none, [...] = specific
   createdAt: string
   updatedAt: string
 }
@@ -109,7 +110,7 @@ export interface Loan {
   userId: string
   user: { id: string; firstName: string; lastName: string; email: string }
   bookCopyId: string
-  bookCopy: { id: string; book: { id: string; title: string; author: string; isbn: string }; shelf: { id: string; library: { id: string; name: string } } }
+  bookCopy: { id: string; barcode: string; book: { id: string; title: string; author: string; isbn: string }; shelf: { id: string; library: { id: string; name: string } } }
   status: LoanStatus
   borrowedAt: string
   dueDate: string

@@ -218,5 +218,18 @@ export async function getMe(userId: string) {
     },
   })
   if (!user) throw new NotFoundError('User')
-  return user
+
+  // Include staff library IDs so frontend knows where user has management access
+  let staffLibraryIds: string[] | null = null
+  if (user.role === 'ADMIN') {
+    staffLibraryIds = null // null means all
+  } else {
+    const staffMemberships = await prisma.libraryMembership.findMany({
+      where: { userId, isActive: true, type: { isStaff: true } },
+      select: { libraryId: true },
+    })
+    staffLibraryIds = staffMemberships.map((m) => m.libraryId)
+  }
+
+  return { ...user, staffLibraryIds }
 }

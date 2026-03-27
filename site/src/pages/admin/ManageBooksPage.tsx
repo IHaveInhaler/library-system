@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { BookOpen, Search, X, Plus } from 'lucide-react'
+import { BookOpen, Search, X, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import { booksApi } from '../../api/books'
 import { copiesApi } from '../../api/copies'
+import { loansApi } from '../../api/loans'
+import { reservationsApi } from '../../api/reservations'
 import { shelvesApi } from '../../api/shelves'
 import { PageSpinner } from '../../components/ui/Spinner'
 import { EmptyState } from '../../components/ui/EmptyState'
@@ -14,7 +16,8 @@ import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { extractError } from '../../api/client'
-import type { Book, BookCopy } from '../../types'
+import { LoanStatusBadge, ReservationStatusBadge } from '../../components/ui/Badge'
+import type { Book, BookCopy, Loan, Reservation } from '../../types'
 
 const GENRES = ['FICTION', 'NON_FICTION', 'SCIENCE', 'HISTORY', 'BIOGRAPHY', 'TECHNOLOGY', 'ARTS', 'CHILDREN', 'REFERENCE', 'OTHER'] as const
 type Genre = typeof GENRES[number]
@@ -22,7 +25,8 @@ type Genre = typeof GENRES[number]
 // ── Book Detail Drawer ─────────────────────────────────────────────────────────
 function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'details' | 'copies'>('details')
+  const [tab, setTab] = useState<'details' | 'copies' | 'loans' | 'reservations'>('details')
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
 
   // ── Details tab ──
   const [form, setForm] = useState({
@@ -91,7 +95,35 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
     onError: (err) => toast.error(extractError(err)),
   })
 
-  const tabs = ['details', 'copies'] as const
+  // ── Loans tab ──
+  const { data: bookLoans } = useQuery({
+    queryKey: ['loans', { bookId: book.id }],
+    queryFn: async () => {
+      // Get all copies, then fetch loans for each
+      const bookCopies = await booksApi.copies(book.id)
+      const copyIds = bookCopies.map((c) => c.id)
+      if (copyIds.length === 0) return []
+      const results = await Promise.all(copyIds.map((id) => loansApi.list({ bookCopyId: id, limit: 50 })))
+      return results.flatMap((r) => r.data)
+    },
+    enabled: tab === 'loans',
+  })
+
+  // ── Reservations tab ──
+  const { data: bookReservations } = useQuery({
+    queryKey: ['reservations', { bookId: book.id }],
+    queryFn: () => reservationsApi.list({ bookId: book.id, limit: 50 }),
+    enabled: tab === 'reservations',
+  })
+
+  // ── Delete book ──
+  const deleteBook = useMutation({
+    mutationFn: () => booksApi.remove(book.id),
+    onSuccess: () => { toast.success('Book deleted'); qc.invalidateQueries({ queryKey: ['books'] }); onClose() },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const tabs = ['details', 'copies', 'loans', 'reservations'] as const
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -258,6 +290,72 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
               )}
             </div>
           )}
+
+          {/* ── Loans ── */}
+          {tab === 'loans' && (
+            <div className="space-y-3">
+              {!bookLoans ? <PageSpinner /> : bookLoans.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No loans for this book.</p>
+              ) : bookLoans.map((loan: Loan) => (
+                <div key={loan.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{loan.user.firstName} {loan.user.lastName}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {loan.bookCopy.barcode} · Borrowed {new Date(loan.borrowedAt).toLocaleDateString()}
+                      {loan.returnedAt ? ` · Returned ${new Date(loan.returnedAt).toLocaleDateString()}` : ` · Due ${new Date(loan.dueDate).toLocaleDateString()}`}
+                    </p>
+                  </div>
+                  <LoanStatusBadge status={loan.status} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Reservations ── */}
+          {tab === 'reservations' && (
+            <div className="space-y-3">
+              {!bookReservations ? <PageSpinner /> : bookReservations.data.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No reservations for this book.</p>
+              ) : bookReservations.data.map((r: Reservation) => (
+                <div key={r.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{r.user.firstName} {r.user.lastName}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Reserved {new Date(r.reservedAt).toLocaleDateString()}
+                      {r.expiresAt && ` · Expires ${new Date(r.expiresAt).toLocaleDateString()}`}
+                    </p>
+                  </div>
+                  <ReservationStatusBadge status={r.status} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Delete Book ── */}
+          <div className="mt-8 border-t border-gray-100 pt-6 dark:border-gray-700">
+            {deleteConfirm ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-900/20">
+                <div className="flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-400">
+                  <AlertTriangle className="h-4 w-4" /> Delete this book?
+                </div>
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  {(copies?.length ?? 0) > 0
+                    ? `This book has ${copies!.length} cop${copies!.length === 1 ? 'y' : 'ies'}. Deleting will remove all copies, loans, and reservations.`
+                    : 'This action cannot be undone.'}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Button size="sm" variant="danger" onClick={() => deleteBook.mutate()} loading={deleteBook.isPending}>
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setDeleteConfirm(false)}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm(true)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                <Trash2 className="h-4 w-4" /> Delete book
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
