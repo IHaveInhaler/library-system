@@ -16,6 +16,7 @@ import {
   Plus,
   Trash2,
   SkipForward,
+  ShieldCheck,
 } from 'lucide-react'
 import { setupApi, type SetupStatus } from '../../api/setup'
 import { librariesApi } from '../../api/libraries'
@@ -27,30 +28,13 @@ import { useAuthStore } from '../../store/auth'
 import { extractError } from '../../api/client'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
+import { PERMISSIONS } from '../../lib/permissions'
 import type { Library } from '../../types'
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const PERMISSION_LABELS: Record<string, string> = {
-  VIEW_LIBRARIES: 'View Libraries',
-  VIEW_ALL_LIBRARIES: 'View All Libraries (bypass membership)',
-  MANAGE_BOOKS: 'Manage Books',
-  MANAGE_LIBRARIES: 'Manage Libraries',
-  MANAGE_SHELVES: 'Manage Shelves',
-  MANAGE_COPIES: 'Manage Copies',
-  ISSUE_LOANS: 'Issue Loans',
-  RETURN_LOANS: 'Return Loans',
-  VIEW_ALL_LOANS: 'View All Loans',
-  MANAGE_RESERVATIONS: 'Manage Reservations',
-  VIEW_ALL_RESERVATIONS: 'View All Reservations',
-  MANAGE_MEMBERSHIPS: 'Manage Memberships',
-  VIEW_USERS: 'View Users',
-  MANAGE_USERS: 'Manage Users',
-  RESET_USER_PASSWORD: 'Reset User Password',
-  VIEW_AUDIT_LOG: 'View Audit Log',
-}
-
-const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS)
+const ALL_PERMISSIONS = PERMISSIONS.map((p) => p.key)
+const PERMISSION_LABEL_MAP = Object.fromEntries(PERMISSIONS.map((p) => [p.key, p.label]))
 
 const RECOMMENDED_GROUPS = [
   {
@@ -79,6 +63,7 @@ const STEPS = [
   { label: 'Groups', icon: Users },
   { label: 'Members', icon: IdCard },
   { label: 'Email', icon: Mail },
+  { label: 'Access', icon: ShieldCheck },
   { label: 'Done', icon: CheckCircle2 },
 ] as const
 
@@ -665,7 +650,7 @@ function GroupsStep({ onNext }: { onNext: () => void }) {
                   {ALL_PERMISSIONS.map((perm) => (
                     <div key={perm} className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-700/30">
                       <span className="text-sm text-gray-700 dark:text-gray-300">
-                        {PERMISSION_LABELS[perm]}
+                        {PERMISSION_LABEL_MAP[perm]}
                       </span>
                       <Toggle
                         checked={g.permissions.has(perm)}
@@ -999,7 +984,105 @@ function SmtpStep({ onNext }: { onNext: () => void }) {
   )
 }
 
-// ── Step 5: Complete ────────────────────────────────────────────────────────
+// ── Step 6: Registration Settings (skippable) ──────────────────────────────
+
+function RegistrationStep({ onNext }: { onNext: () => void }) {
+  const [mode, setMode] = useState('open')
+  const [domain, setDomain] = useState('')
+  const [requireApproval, setRequireApproval] = useState(false)
+  const [requireEmail, setRequireEmail] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await settingsApi.update({
+        'reg.mode': mode,
+        'reg.allowedDomain': domain,
+        'reg.requireApproval': requireApproval ? 'true' : 'false',
+        'reg.requireEmailConfirmation': requireEmail ? 'true' : 'false',
+      })
+      toast.success('Registration settings saved')
+      onNext()
+    } catch (err) {
+      toast.error(extractError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <h2 className="mb-1 text-xl font-bold text-gray-900 dark:text-white">Registration</h2>
+      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+        Control who can create an account. You can change this later in admin settings.
+      </p>
+
+      <div className="space-y-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Registration mode</label>
+          <select
+            value={mode}
+            onChange={(e) => setMode(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          >
+            <option value="open">Open — anyone can register</option>
+            <option value="domain">Email domain — restrict to a specific domain</option>
+            <option value="token">Registration token — require a token</option>
+            <option value="disabled">Disabled — registration is closed</option>
+          </select>
+        </div>
+
+        {mode === 'domain' && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-400">@</span>
+            <input
+              value={domain}
+              onChange={(e) => setDomain(e.target.value.toLowerCase())}
+              placeholder="company.com"
+              className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+            />
+          </div>
+        )}
+
+        <div className="space-y-3 border-t border-gray-100 pt-4 dark:border-gray-700">
+          <label className="flex items-center justify-between cursor-pointer">
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Require approval</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">New accounts stay inactive until activated by an admin.</p>
+            </div>
+            <button type="button" role="switch" aria-checked={requireApproval} onClick={() => setRequireApproval(!requireApproval)}
+              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${requireApproval ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${requireApproval ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+          </label>
+
+          <label className="flex items-center justify-between cursor-pointer">
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Require email confirmation</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">Send a 6-digit code to verify email before activating.</p>
+            </div>
+            <button type="button" role="switch" aria-checked={requireEmail} onClick={() => setRequireEmail(!requireEmail)}
+              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${requireEmail ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${requireEmail ? 'translate-x-4' : 'translate-x-0'}`} />
+            </button>
+          </label>
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <Button variant="ghost" onClick={onNext} className="flex-1">
+            <SkipForward className="h-4 w-4" /> Skip
+          </Button>
+          <Button onClick={handleSave} loading={saving} className="flex-1">
+            Save & Continue <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Step 7: Complete ────────────────────────────────────────────────────────
 
 function CompleteStep({
   libraries,
@@ -1163,7 +1246,8 @@ export default function SetupWizard({
           )}
           {step === 4 && <MembershipTypesStep onNext={next} />}
           {step === 5 && <SmtpStep onNext={next} />}
-          {step === 6 && (
+          {step === 6 && <RegistrationStep onNext={next} />}
+          {step === 7 && (
             <CompleteStep
               libraries={libraries}
               groups={createdGroups}
@@ -1172,7 +1256,7 @@ export default function SetupWizard({
           )}
         </div>
 
-        {step > 1 && step < 6 && (
+        {step > 1 && step < 7 && (
           <button
             onClick={() => setStep((s) => s - 1)}
             className="mt-4 flex w-full items-center justify-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"

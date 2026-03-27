@@ -1,33 +1,15 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Users2, Plus, Trash2, Lock, ShieldCheck, Pencil, Check, X, GripVertical } from 'lucide-react'
+import { Users2, Plus, Trash2, Lock, ShieldCheck, Pencil, Check, X, GripVertical, ChevronDown } from 'lucide-react'
 import { groupsApi, type Group } from '../../api/groups'
 import { permissionsApi } from '../../api/permissions'
+import { PERMISSIONS_BY_CATEGORY } from '../../lib/permissions'
 import { PageSpinner } from '../../components/ui/Spinner'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { extractError } from '../../api/client'
-
-const PERMISSION_LABELS: Record<string, string> = {
-  VIEW_LIBRARIES: 'View Libraries',
-  VIEW_ALL_LIBRARIES: 'View All Libraries (bypass membership)',
-  MANAGE_BOOKS: 'Manage Books',
-  MANAGE_LIBRARIES: 'Manage Libraries',
-  MANAGE_SHELVES: 'Manage Shelves',
-  MANAGE_COPIES: 'Manage Copies',
-  ISSUE_LOANS: 'Issue Loans',
-  RETURN_LOANS: 'Return Loans',
-  VIEW_ALL_LOANS: 'View All Loans',
-  MANAGE_RESERVATIONS: 'Manage Reservations',
-  VIEW_ALL_RESERVATIONS: 'View All Reservations',
-  MANAGE_MEMBERSHIPS: 'Manage Memberships',
-  VIEW_USERS: 'View Users',
-  MANAGE_USERS: 'Manage Users',
-  RESET_USER_PASSWORD: 'Reset User Password',
-  VIEW_AUDIT_LOG: 'View Audit Log',
-}
 
 // ── Toggle ─────────────────────────────────────────────────────────────────
 
@@ -49,6 +31,78 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
     >
       <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
     </button>
+  )
+}
+
+// ── Permission Categories (collapsible) ──────────────────────────────────────
+
+function PermissionCategories({
+  permissions,
+  isAdmin,
+  onToggle,
+}: {
+  permissions: Record<string, boolean>
+  isAdmin: boolean
+  onToggle: (perm: string, granted: boolean) => void
+}) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+
+  const toggleCategory = (cat: string) =>
+    setCollapsed((prev) => ({ ...prev, [cat]: !prev[cat] }))
+
+  return (
+    <div className="space-y-3">
+      {PERMISSIONS_BY_CATEGORY.map(({ category, permissions: catPerms }) => {
+        const granted = catPerms.filter((p) => permissions[p.key]).length
+        const total = catPerms.length
+        const isCollapsed = collapsed[category] ?? false
+
+        return (
+          <div key={category}>
+            <button
+              type="button"
+              onClick={() => toggleCategory(category)}
+              className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-xs font-medium uppercase tracking-wide text-gray-500 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700/30"
+            >
+              <span>{category}</span>
+              <span className="flex items-center gap-1.5">
+                <span className={`font-normal normal-case tracking-normal ${granted === total ? 'text-green-600 dark:text-green-400' : ''}`}>
+                  {granted}/{total}
+                </span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? '' : 'rotate-180'}`} />
+              </span>
+            </button>
+
+            {!isCollapsed && (
+              <div className="mt-1 space-y-1">
+                {catPerms.map((perm) => (
+                  <div
+                    key={perm.key}
+                    className="flex items-center justify-between rounded-lg px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/30"
+                  >
+                    <div className="min-w-0 flex-1 pr-3">
+                      <p className="text-sm text-gray-700 dark:text-gray-300">{perm.label}</p>
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500">{perm.description}</p>
+                    </div>
+                    {isAdmin ? (
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <Lock className="h-3.5 w-3.5 text-gray-400" />
+                        <ShieldCheck className="h-4 w-4 text-green-500" />
+                      </div>
+                    ) : (
+                      <Toggle
+                        checked={permissions[perm.key] ?? false}
+                        onChange={(v) => onToggle(perm.key, v)}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -309,30 +363,11 @@ function GroupCard({
 
       {expanded && (
         <div className="border-t border-gray-100 px-5 py-4 dark:border-gray-700">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Permissions
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {Object.entries(group.permissions).map(([perm, granted]) => (
-              <div key={perm} className="flex items-center justify-between">
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  {PERMISSION_LABELS[perm] ?? perm}
-                </span>
-                {isAdmin ? (
-                  <div className="flex items-center gap-1.5">
-                    <Lock className="h-3.5 w-3.5 text-gray-400" />
-                    <ShieldCheck className="h-4 w-4 text-green-500" />
-                  </div>
-                ) : (
-                  <Toggle
-                    checked={granted}
-                    disabled={isAdmin}
-                    onChange={(v) => toggle.mutate({ permission: perm, granted: v })}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+          <PermissionCategories
+            permissions={group.permissions}
+            isAdmin={isAdmin}
+            onToggle={(perm, granted) => toggle.mutate({ permission: perm, granted })}
+          />
         </div>
       )}
     </div>
