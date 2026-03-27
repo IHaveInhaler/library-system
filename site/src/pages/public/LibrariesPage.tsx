@@ -1,11 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Library } from 'lucide-react'
+import { Library, Lock } from 'lucide-react'
 import { librariesApi } from '../../api/libraries'
+import { useAuth } from '../../hooks/useAuth'
 import { PageSpinner } from '../../components/ui/Spinner'
 import { EmptyState } from '../../components/ui/EmptyState'
 
 export default function LibrariesPage() {
+  const { user } = useAuth()
   const { data, isLoading } = useQuery({
     queryKey: ['libraries'],
     queryFn: () => librariesApi.list({ limit: 50 }),
@@ -18,7 +20,23 @@ export default function LibrariesPage() {
       <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">Libraries</h1>
 
       {!data?.data.length ? (
-        <EmptyState icon={Library} title="No libraries found" />
+        !user ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+              <Lock className="h-7 w-7 text-gray-400 dark:text-gray-500" />
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Members only</h2>
+            <p className="mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">
+              Our libraries are members-only.{' '}
+              <Link to="/login" className="text-blue-600 hover:underline dark:text-blue-400">Log in</Link>
+              {' '}or{' '}
+              <Link to="/register" className="text-blue-600 hover:underline dark:text-blue-400">register</Link>
+              {' '}to browse.
+            </p>
+          </div>
+        ) : (
+          <EmptyState icon={Library} title="No libraries found" />
+        )
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {data.data.map((lib) => (

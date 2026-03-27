@@ -47,25 +47,24 @@ async function main() {
     }),
   ])
 
-  // Memberships — member is a permanent patron of Central, monthly patron of West
+  // Memberships
   const monthEnd = new Date()
   monthEnd.setMonth(monthEnd.getMonth() + 1)
 
   await Promise.all([
+    // Member: permanent @ Central, monthly @ West
     prisma.libraryMembership.create({
-      data: {
-        userId: member.id,
-        libraryId: centralLib.id,
-        membershipType: 'PERMANENT',
-      },
+      data: { userId: member.id, libraryId: centralLib.id, membershipType: 'PERMANENT' },
     }),
     prisma.libraryMembership.create({
-      data: {
-        userId: member.id,
-        libraryId: westLib.id,
-        membershipType: 'MONTHLY',
-        endDate: monthEnd,
-      },
+      data: { userId: member.id, libraryId: westLib.id, membershipType: 'MONTHLY', endDate: monthEnd },
+    }),
+    // Librarian: permanent access to all libraries
+    prisma.libraryMembership.create({
+      data: { userId: librarian.id, libraryId: centralLib.id, membershipType: 'PERMANENT' },
+    }),
+    prisma.libraryMembership.create({
+      data: { userId: librarian.id, libraryId: westLib.id, membershipType: 'PERMANENT' },
     }),
   ])
 
@@ -170,6 +169,7 @@ async function main() {
   console.log('')
   console.log('  Libraries: all private')
   console.log('  Member has: PERMANENT membership @ Central, MONTHLY membership @ West')
+  console.log('  Librarian has: PERMANENT membership @ Central and West')
 }
 
 main()

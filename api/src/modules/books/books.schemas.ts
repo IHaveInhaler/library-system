@@ -23,6 +23,7 @@ export const bookQuerySchema = z.object({
   search: z.string().optional(),
   author: z.string().optional(),
   language: z.string().optional(),
+  shelfId: z.string().optional(),
 })
 
 export const isbnLookupSchema = z.object({

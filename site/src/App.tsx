@@ -14,10 +14,12 @@ import LoginPage from './pages/public/LoginPage'
 import RegisterPage from './pages/public/RegisterPage'
 import DashboardPage from './pages/member/DashboardPage'
 import ManagePage from './pages/admin/ManagePage'
-import AdminPermissionsPage from './pages/admin/AdminPermissionsPage'
+import AdminPage from './pages/admin/AdminPage'
+import GroupsPage from './pages/admin/GroupsPage'
 import ManageBooksPage from './pages/admin/ManageBooksPage'
 import ManageLibrariesPage from './pages/admin/ManageLibrariesPage'
 import LoansPage from './pages/admin/LoansPage'
+import ReservationsPage from './pages/admin/ReservationsPage'
 import UsersPage from './pages/admin/UsersPage'
 
 const qc = new QueryClient({
@@ -30,7 +32,7 @@ export default function App() {
   return (
     <QueryClientProvider client={qc}>
       <BrowserRouter>
-        <Toaster position="top-right" richColors />
+        <Toaster position="top-right" richColors offset={{ top: 64 }} />
         <Routes>
           {/* Auth pages — no navbar */}
           <Route path="/login" element={<LoginPage />} />
@@ -56,16 +58,18 @@ export default function App() {
                   <Route path="/manage/books" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ManageBooksPage /></ProtectedRoute>} />
                   <Route path="/manage/libraries" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ManageLibrariesPage /></ProtectedRoute>} />
                   <Route path="/manage/loans" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><LoansPage /></ProtectedRoute>} />
+                  <Route path="/manage/reservations" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ReservationsPage /></ProtectedRoute>} />
                   <Route path="/manage/users" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><UsersPage /></ProtectedRoute>} />
 
                   {/* Admin section — ADMIN only */}
-                  <Route path="/admin" element={<ProtectedRoute roles={['ADMIN']}><AdminPermissionsPage /></ProtectedRoute>} />
+                  <Route path="/admin" element={<ProtectedRoute roles={['ADMIN']}><AdminPage /></ProtectedRoute>} />
+                  <Route path="/admin/groups" element={<ProtectedRoute roles={['ADMIN']}><GroupsPage /></ProtectedRoute>} />
+                  <Route path="/admin/users" element={<ProtectedRoute roles={['ADMIN']}><UsersPage /></ProtectedRoute>} />
 
                   {/* Legacy redirects */}
                   <Route path="/admin/books" element={<Navigate to="/manage/books" replace />} />
                   <Route path="/admin/libraries" element={<Navigate to="/manage/libraries" replace />} />
                   <Route path="/admin/loans" element={<Navigate to="/manage/loans" replace />} />
-                  <Route path="/admin/users" element={<Navigate to="/manage/users" replace />} />
 
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

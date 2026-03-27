@@ -3,7 +3,7 @@ import * as shelvesService from './shelves.service'
 
 export async function list(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await shelvesService.listShelves(req.query as any)
+    const result = await shelvesService.listShelves(req.query as any, req.user?.id, req.user?.role)
     res.json(result)
   } catch (err) {
     next(err)
@@ -12,7 +12,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
 
 export async function getById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const shelf = await shelvesService.getShelf(req.params.id as string)
+    const shelf = await shelvesService.getShelf(req.params.id as string, req.user?.id, req.user?.role)
     res.json(shelf)
   } catch (err) {
     next(err)

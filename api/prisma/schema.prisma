@@ -145,6 +145,16 @@ model RolePermission {
   @@unique([role, permission])
 }
 
+model Group {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g. MEMBER, LIBRARIAN, ADMIN, SENIOR_LIBRARIAN
+  description String?
+  isBuiltIn   Boolean  @default(false)
+  order       Int      @default(999) // lower = higher rank; used for role assignment rules
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Reservation {
   id          String    @id @default(uuid())
   userId      String

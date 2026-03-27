@@ -13,6 +13,7 @@ import bookCopiesRouter from './modules/bookCopies/bookCopies.router'
 import loansRouter from './modules/loans/loans.router'
 import reservationsRouter from './modules/reservations/reservations.router'
 import permissionsRouter from './modules/permissions/permissions.router'
+import groupsRouter from './modules/groups/groups.router'
 
 export function createApp() {
   const app = express()
@@ -31,6 +32,7 @@ export function createApp() {
   app.use('/api/loans', authenticate, loansRouter)
   app.use('/api/reservations', authenticate, reservationsRouter)
   app.use('/api/permissions', permissionsRouter)
+  app.use('/api/groups', groupsRouter)
 
   app.use(errorHandler)
 

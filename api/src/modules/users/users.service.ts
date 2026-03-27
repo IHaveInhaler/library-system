@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma'
-import { NotFoundError, ForbiddenError, ConflictError } from '../../errors'
+import { NotFoundError, ForbiddenError, ConflictError, BadRequestError } from '../../errors'
 import { hashPassword } from '../../lib/password'
+import { hasPermission } from '../../lib/permissions'
 import { CreateUserInput, UpdateUserInput, UsersQueryInput } from './users.schemas'
 
 const safeSelect = {
@@ -55,21 +56,57 @@ export async function getUser(id: string) {
   return user
 }
 
-export async function updateUser(id: string, input: UpdateUserInput) {
-  await getUser(id)
+export async function updateUser(id: string, input: UpdateUserInput, callerId?: string, callerRole?: string) {
+  const target = await getUser(id)
+  if (callerId && callerId === id && input.role !== undefined) {
+    throw new BadRequestError('You cannot change your own role')
+  }
+
+  // Rank hierarchy: non-ADMIN callers can only manage users with lower rank (higher order number)
+  if (callerRole && callerRole !== 'ADMIN') {
+    const callerGroup = await prisma.group.findUnique({ where: { name: callerRole } })
+    if (callerGroup) {
+      // Caller cannot manage a user whose role is equal or higher rank (lower order)
+      const targetGroup = await prisma.group.findUnique({ where: { name: target.role } })
+      if (targetGroup && targetGroup.order <= callerGroup.order) {
+        throw new ForbiddenError('You cannot manage users with equal or higher rank than yours')
+      }
+
+      // Caller cannot assign a role of equal or higher rank
+      if (input.role) {
+        const newRoleGroup = await prisma.group.findUnique({ where: { name: input.role } })
+        if (newRoleGroup && newRoleGroup.order <= callerGroup.order) {
+          throw new ForbiddenError('You cannot assign a role with equal or higher rank than yours')
+        }
+      }
+    }
+  }
+
   return prisma.user.update({ where: { id }, data: input, select: safeSelect })
+}
+
+export async function setUserActive(id: string, isActive: boolean) {
+  await getUser(id)
+  return prisma.user.update({ where: { id }, data: { isActive }, select: safeSelect })
+}
+
+export async function revokeUserSessions(id: string) {
+  await getUser(id)
+  await prisma.refreshToken.updateMany({ where: { userId: id }, data: { revokedAt: new Date() } })
 }
 
 export async function deleteUser(id: string) {
   await getUser(id)
-  return prisma.user.update({ where: { id }, data: { isActive: false }, select: safeSelect })
+  await prisma.refreshToken.deleteMany({ where: { userId: id } })
+  return prisma.user.delete({ where: { id } })
 }
 
 export async function getUserLoans(userId: string, callerId: string, callerRole: string) {
   await getUser(userId)
 
-  if (callerRole === 'MEMBER' && callerId !== userId) {
-    throw new ForbiddenError('You can only view your own loans')
+  if (callerId !== userId && callerRole !== 'ADMIN') {
+    const canView = await hasPermission(callerRole, 'VIEW_USERS')
+    if (!canView) throw new ForbiddenError('You can only view your own loans')
   }
 
   return prisma.loan.findMany({
@@ -89,8 +126,9 @@ export async function getUserLoans(userId: string, callerId: string, callerRole:
 export async function getUserReservations(userId: string, callerId: string, callerRole: string) {
   await getUser(userId)
 
-  if (callerRole === 'MEMBER' && callerId !== userId) {
-    throw new ForbiddenError('You can only view your own reservations')
+  if (callerId !== userId && callerRole !== 'ADMIN') {
+    const canView = await hasPermission(callerRole, 'VIEW_USERS')
+    if (!canView) throw new ForbiddenError('You can only view your own reservations')
   }
 
   return prisma.reservation.findMany({

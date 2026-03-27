@@ -3,10 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Users, Plus, X, ChevronRight, BookOpen, Bookmark, Library, Search } from 'lucide-react'
+import { useAuth } from '../../hooks/useAuth'
 import { usersApi } from '../../api/users'
 import { librariesApi } from '../../api/libraries'
 import { booksApi } from '../../api/books'
 import { loansApi } from '../../api/loans'
+import { reservationsApi } from '../../api/reservations'
 import { PageSpinner } from '../../components/ui/Spinner'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Pagination } from '../../components/ui/Pagination'
@@ -182,16 +184,84 @@ function IssueLoanForUserModal({ user, open, onClose }: { user: User; open: bool
   )
 }
 
+// ── Fulfill Reservation Modal (inline, user pre-filled) ────────────────────────
+function FulfillReservationModal({ reservation, open, onClose, onSuccess }: { reservation: Reservation; open: boolean; onClose: () => void; onSuccess: () => void }) {
+  const [selectedCopyId, setSelectedCopyId] = useState('')
+
+  const { data: copies } = useQuery({
+    queryKey: ['books', reservation.bookId, 'copies'],
+    queryFn: () => booksApi.copies(reservation.bookId),
+    enabled: open,
+  })
+  const available = copies?.filter((c: any) => c.status === 'AVAILABLE' || c.status === 'RESERVED') ?? []
+
+  const fulfill = useMutation({
+    mutationFn: () => reservationsApi.fulfill(reservation.id, selectedCopyId),
+    onSuccess: () => { toast.success('Reservation fulfilled'); onSuccess() },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  return (
+    <Modal open={open} onClose={onClose} title="Fulfill Reservation" size="md">
+      <div className="space-y-4">
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-700/40">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">{reservation.book.title}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">ISBN {reservation.book.isbn}</p>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Select copy</label>
+          {available.length === 0 ? (
+            <p className="text-sm text-red-500">No available copies</p>
+          ) : (
+            <select value={selectedCopyId} onChange={(e) => setSelectedCopyId(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+              <option value="">Select a copy…</option>
+              {available.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.barcode} · {c.shelf?.library?.name} · {c.condition}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => fulfill.mutate()} loading={fulfill.isPending} disabled={!selectedCopyId}>Fulfill</Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ── Manage User Drawer ─────────────────────────────────────────────────────────
 function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }) {
+  const { user: currentUser } = useAuth()
+  const isSelf = currentUser?.id === user.id
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'details' | 'memberships' | 'loans' | 'reservations'>('details')
-  const [details, setDetails] = useState({ firstName: user.firstName, lastName: user.lastName, role: user.role, isActive: user.isActive })
+  const [tab, setTab] = useState<'details' | 'libraries' | 'loans' | 'reservations'>('details')
+  const [details, setDetails] = useState({ firstName: user.firstName, lastName: user.lastName, role: user.role })
   const [issueLoanOpen, setIssueLoanOpen] = useState(false)
+  const [fulfillTarget, setFulfillTarget] = useState<Reservation | null>(null)
 
   const updateUser = useMutation({
     mutationFn: () => usersApi.update(user.id, details),
     onSuccess: () => { toast.success('Saved'); qc.invalidateQueries({ queryKey: ['users'] }) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const toggleActive = useMutation({
+    mutationFn: () => usersApi.setActive(user.id, !user.isActive),
+    onSuccess: () => { toast.success(user.isActive ? 'Account deactivated' : 'Account activated'); qc.invalidateQueries({ queryKey: ['users'] }); onClose() },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const revokeSessions = useMutation({
+    mutationFn: () => usersApi.revokeSessions(user.id),
+    onSuccess: () => toast.success('All sessions revoked'),
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const deleteUser = useMutation({
+    mutationFn: () => usersApi.remove(user.id),
+    onSuccess: () => { toast.success('User deleted'); qc.invalidateQueries({ queryKey: ['users'] }); onClose() },
     onError: (err) => toast.error(extractError(err)),
   })
 
@@ -221,7 +291,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
       }))
       return all
     },
-    enabled: tab === 'memberships',
+    enabled: tab === 'libraries',
   })
 
   // Add membership state
@@ -249,7 +319,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
     onError: (err) => toast.error(extractError(err)),
   })
 
-  const tabs = ['details', 'memberships', 'loans', 'reservations'] as const
+  const tabs = ['details', 'libraries', 'loans', 'reservations'] as const
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -278,7 +348,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
               className={`px-4 py-2.5 text-sm font-medium capitalize transition-colors ${tab === t
                 ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400'
                 : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'}`}>
-              {t}
+              {t === 'libraries' ? 'Library Access' : t}
             </button>
           ))}
         </div>
@@ -296,18 +366,49 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
               <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
                 <select value={details.role} onChange={(e) => setDetails({ ...details, role: e.target.value as typeof ROLES[number] })}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                  disabled={isSelf}
+                  title={isSelf ? 'You cannot change your own role' : undefined}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                   {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               </div>
-              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                <input type="checkbox" checked={details.isActive}
-                  onChange={(e) => setDetails({ ...details, isActive: e.target.checked })}
-                  className="rounded border-gray-300" />
-                Account active
-              </label>
               <div className="pt-2">
                 <Button onClick={() => updateUser.mutate()} loading={updateUser.isPending}>Save changes</Button>
+              </div>
+
+              {/* Account actions */}
+              <div className="mt-2 flex flex-wrap gap-2 border-t border-gray-100 pt-4 dark:border-gray-700">
+                <Button
+                  variant="secondary"
+                  disabled={isSelf}
+                  title={isSelf ? 'Cannot change your own account status' : undefined}
+                  onClick={() => toggleActive.mutate()}
+                  loading={toggleActive.isPending}
+                >
+                  {user.isActive ? 'Deactivate Account' : 'Activate Account'}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => revokeSessions.mutate()}
+                  loading={revokeSessions.isPending}
+                >
+                  Revoke Sessions
+                </Button>
+                {currentUser?.role === 'ADMIN' && (
+                  <Button
+                    variant="danger"
+                    disabled={isSelf}
+                    title={isSelf ? 'Cannot delete your own account' : undefined}
+                    onClick={() => {
+                      if (confirm(`Delete ${user.firstName} ${user.lastName}? This cannot be undone.`)) {
+                        deleteUser.mutate()
+                      }
+                    }}
+                    loading={deleteUser.isPending}
+                  >
+                    Delete Account
+                  </Button>
+                )}
               </div>
               <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
                 <p className="text-xs text-gray-400 dark:text-gray-500">User ID</p>
@@ -318,17 +419,25 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
             </div>
           )}
 
-          {/* ── Memberships ── */}
-          {tab === 'memberships' && (
+          {/* ── Library Access ── */}
+          {tab === 'libraries' && (
             <div className="space-y-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Libraries this user has been granted access to. Private libraries require explicit access.
+              </p>
               {!memberships ? <PageSpinner /> : memberships.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">No memberships.</p>
+                <div className="rounded-lg border border-dashed border-gray-200 py-8 text-center dark:border-gray-700">
+                  <Library className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No library access granted.</p>
+                </div>
               ) : (
                 <div className="space-y-2">
                   {memberships.map((m) => (
                     <div key={m.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                      <div className="flex items-center gap-2">
-                        <Library className="h-4 w-4 text-gray-400" />
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${m.isActive ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                          <Library className={`h-4 w-4 ${m.isActive ? 'text-blue-500' : 'text-gray-400'}`} />
+                        </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">{(m as any).library?.name ?? m.libraryId}</p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -352,8 +461,9 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
 
               {addMem ? (
                 <div className="space-y-3 rounded-lg border border-dashed border-gray-300 p-4 dark:border-gray-600">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Grant library access</p>
                   <div className="flex flex-col gap-1">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Library</label>
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Library</label>
                     <select value={memForm.libraryId} onChange={(e) => setMemForm({ ...memForm, libraryId: e.target.value })}
                       className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                       <option value="">Select library…</option>
@@ -361,7 +471,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                     </select>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Type</label>
+                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400">Access type</label>
                     <select value={memForm.membershipType} onChange={(e) => setMemForm({ ...memForm, membershipType: e.target.value })}
                       className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                       {['PERMANENT', 'MONTHLY', 'FIXED'].map((t) => <option key={t} value={t}>{t}</option>)}
@@ -371,13 +481,13 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                     <Input label="End date" type="date" value={memForm.endDate} onChange={(e) => setMemForm({ ...memForm, endDate: e.target.value })} />
                   )}
                   <div className="flex gap-2">
-                    <Button size="sm" onClick={() => createMembership.mutate()} loading={createMembership.isPending} disabled={!memForm.libraryId}>Add</Button>
+                    <Button size="sm" onClick={() => createMembership.mutate()} loading={createMembership.isPending} disabled={!memForm.libraryId}>Grant Access</Button>
                     <Button size="sm" variant="secondary" onClick={() => setAddMem(false)}>Cancel</Button>
                   </div>
                 </div>
               ) : (
                 <Button variant="secondary" onClick={() => setAddMem(true)}>
-                  <Plus className="h-4 w-4" /> Add membership
+                  <Plus className="h-4 w-4" /> Grant library access
                 </Button>
               )}
             </div>
@@ -415,7 +525,13 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                 <div key={r.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">{r.book.title}</p>
-                    <ReservationStatusBadge status={r.status} />
+                    {r.status === 'PENDING' ? (
+                      <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); setFulfillTarget(r) }}>
+                        Fulfill
+                      </Button>
+                    ) : (
+                      <ReservationStatusBadge status={r.status} />
+                    )}
                   </div>
                   <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
                     Reserved {new Date(r.reservedAt).toLocaleDateString()}
@@ -427,6 +543,17 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
         </div>
       </div>
       <IssueLoanForUserModal user={user} open={issueLoanOpen} onClose={() => setIssueLoanOpen(false)} />
+      {fulfillTarget && (
+        <FulfillReservationModal
+          reservation={fulfillTarget}
+          open={!!fulfillTarget}
+          onClose={() => setFulfillTarget(null)}
+          onSuccess={() => {
+            setFulfillTarget(null)
+            qc.invalidateQueries({ queryKey: ['users', user.id, 'reservations'] })
+          }}
+        />
+      )}
     </div>
   )
 }
