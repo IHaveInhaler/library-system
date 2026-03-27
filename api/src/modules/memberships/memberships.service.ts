@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma'
-import { NotFoundError } from '../../errors/index'
+import { NotFoundError, BadRequestError } from '../../errors/index'
 import { CreateMembershipInput, UpdateMembershipInput } from './memberships.schemas'
 
 export async function listMemberships(libraryId: string) {
@@ -31,6 +31,12 @@ export async function createMembership(libraryId: string, input: CreateMembershi
 
   const user = await prisma.user.findUnique({ where: { id: input.userId } })
   if (!user) throw new NotFoundError('User')
+
+  // Validate membership type exists
+  if (input.membershipType) {
+    const mType = await prisma.membershipType.findUnique({ where: { name: input.membershipType } })
+    if (!mType) throw new BadRequestError(`Unknown membership type: ${input.membershipType}`)
+  }
 
   const existing = await prisma.libraryMembership.findUnique({
     where: { userId_libraryId: { userId: input.userId, libraryId } },
