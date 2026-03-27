@@ -1,7 +1,10 @@
+import crypto from 'crypto'
 import { prisma } from '../../lib/prisma'
 import { NotFoundError, ForbiddenError, ConflictError, BadRequestError } from '../../errors'
 import { hashPassword } from '../../lib/password'
 import { hasPermission } from '../../lib/permissions'
+import { getSetting } from '../../lib/settings'
+import { sendPasswordResetEmail } from '../../lib/mailer'
 import { CreateUserInput, UpdateUserInput, UsersQueryInput } from './users.schemas'
 
 const safeSelect = {
@@ -11,6 +14,7 @@ const safeSelect = {
   lastName: true,
   role: true,
   isActive: true,
+  deactivationReason: true,
   createdAt: true,
   updatedAt: true,
 } as const
@@ -85,9 +89,16 @@ export async function updateUser(id: string, input: UpdateUserInput, callerId?: 
   return prisma.user.update({ where: { id }, data: input, select: safeSelect })
 }
 
-export async function setUserActive(id: string, isActive: boolean) {
+export async function setUserActive(id: string, isActive: boolean, reason?: string) {
   await getUser(id)
-  return prisma.user.update({ where: { id }, data: { isActive }, select: safeSelect })
+  return prisma.user.update({
+    where: { id },
+    data: {
+      isActive,
+      deactivationReason: isActive ? null : (reason ?? null),
+    },
+    select: safeSelect,
+  })
 }
 
 export async function revokeUserSessions(id: string) {
@@ -99,6 +110,28 @@ export async function deleteUser(id: string) {
   await getUser(id)
   await prisma.refreshToken.deleteMany({ where: { userId: id } })
   return prisma.user.delete({ where: { id } })
+}
+
+export async function resetUserPassword(id: string): Promise<{ message: string }> {
+  const user = await getUser(id)
+
+  // Invalidate any existing unused reset tokens
+  await prisma.passwordResetToken.updateMany({
+    where: { userId: id, usedAt: null },
+    data: { usedAt: new Date() },
+  })
+
+  const token = crypto.randomBytes(32).toString('hex')
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+
+  await prisma.passwordResetToken.create({ data: { userId: id, token, expiresAt } })
+
+  const baseUrl = (await getSetting('app.baseUrl')) || process.env.CORS_ORIGIN || 'http://localhost:5173'
+  const resetLink = `${baseUrl}/reset-password?token=${token}`
+
+  await sendPasswordResetEmail(user.email, resetLink)
+
+  return { message: 'Password reset link sent.' }
 }
 
 export async function getUserLoans(userId: string, callerId: string, callerRole: string) {

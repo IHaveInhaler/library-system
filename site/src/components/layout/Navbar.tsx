@@ -1,6 +1,8 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { BookOpen, LayoutDashboard, LogOut, Settings, ShieldCheck } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth, useLogout, useRole } from '../../hooks/useAuth'
+import { librariesApi } from '../../api/libraries'
 import { Button } from '../ui/Button'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -9,6 +11,13 @@ export function Navbar() {
   const { isLibrarian, isAdmin } = useRole()
   const logout = useLogout()
   const navigate = useNavigate()
+
+  const { data: libraryCount } = useQuery({
+    queryKey: ['libraries', 'count'],
+    queryFn: () => librariesApi.list({ limit: 1 }),
+    staleTime: 60_000,
+  })
+  const singleLibrary = !isLibrarian && libraryCount?.meta.total === 1
 
   const handleLogout = async () => {
     await logout.mutateAsync()
@@ -31,7 +40,7 @@ export function Navbar() {
             Library Portal
           </Link>
           <NavLink to="/books" className={linkClass}>Books</NavLink>
-          <NavLink to="/libraries" className={linkClass}>Libraries</NavLink>
+          <NavLink to="/libraries" className={linkClass}>{singleLibrary ? 'Library' : 'Libraries'}</NavLink>
         </div>
 
         <div className="flex items-center gap-3">

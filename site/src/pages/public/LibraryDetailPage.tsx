@@ -86,6 +86,12 @@ export default function LibraryDetailPage() {
     enabled: !!id,
   })
 
+  const { data: bookResults, isLoading: booksLoading } = useQuery({
+    queryKey: ['books', 'library', id, shelfSearch],
+    queryFn: () => booksApi.list({ libraryId: id!, search: shelfSearch, limit: 20 }),
+    enabled: !!shelfSearch && !!id,
+  })
+
   const filteredShelves = (shelves ?? []).filter((s) => {
     if (!shelfSearch) return true
     const q = shelfSearch.toLowerCase()
@@ -119,11 +125,46 @@ export default function LibraryDetailPage() {
           <input
             value={shelfSearch}
             onChange={(e) => setShelfSearch(e.target.value)}
-            placeholder="Search shelves…"
-            className="w-56 rounded-lg border border-gray-300 bg-white py-1.5 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
+            placeholder="Search shelves & books…"
+            className="w-64 rounded-lg border border-gray-300 bg-white py-1.5 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
           />
         </div>
       </div>
+
+      {shelfSearch && (
+        <div className="mb-6">
+          <h3 className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Books matching "{shelfSearch}"
+            {bookResults && <span className="ml-1 font-normal text-gray-400">({bookResults.meta.total})</span>}
+          </h3>
+          {booksLoading ? (
+            <p className="text-xs text-gray-400 dark:text-gray-500">Searching books…</p>
+          ) : !bookResults?.data.length ? (
+            <p className="text-xs text-gray-400 dark:text-gray-500">No books found.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {bookResults.data.map((book) => (
+                <Link
+                  key={book.id}
+                  to={`/books/${book.id}`}
+                  className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-blue-600 dark:hover:bg-blue-900/20"
+                >
+                  <BookOpen className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{book.title}</p>
+                    <p className="truncate text-xs text-gray-500 dark:text-gray-400">{book.author}</p>
+                  </div>
+                  {book.availableCount !== undefined && (
+                    <span className={`text-xs font-medium flex-shrink-0 ${book.availableCount > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-400'}`}>
+                      {book.availableCount > 0 ? `${book.availableCount} available` : 'None available'}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {shelvesLoading ? (
         <PageSpinner />

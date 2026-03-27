@@ -3,6 +3,7 @@ import { ReservationStatus } from '../../types'
 
 export const createReservationSchema = z.object({
   bookId: z.string().uuid(),
+  userId: z.string().uuid().optional(), // admin/librarian: create on behalf of another user
   notes: z.string().max(500).optional(),
 })
 

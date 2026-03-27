@@ -15,7 +15,7 @@ async function resolveAccess(userId?: string, userRole?: string) {
 }
 
 export async function listBooks(query: BookQueryInput, userId?: string, userRole?: string) {
-  const { page, limit, genre, search, author, language, shelfId } = query
+  const { page, limit, genre, search, author, language, shelfId, libraryId } = query
   const skip = (page - 1) * limit
 
   const { canViewPublic, canViewAll } = await resolveAccess(userId, userRole)
@@ -24,6 +24,8 @@ export async function listBooks(query: BookQueryInput, userId?: string, userRole
   const where = {
     ...(shelfId
       ? { copies: { some: { shelfId, ...(accessibleIds && { shelf: { libraryId: { in: accessibleIds } } }) } } }
+      : libraryId
+      ? { copies: { some: { shelf: { libraryId, ...(accessibleIds && { libraryId: { in: accessibleIds } }) } } } }
       : accessibleIds && { copies: { some: { shelf: { libraryId: { in: accessibleIds } } } } }),
     ...(genre && { genre }),
     ...(language && { language }),

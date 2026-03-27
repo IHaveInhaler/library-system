@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import * as reservationsService from './reservations.service'
+import { hasPermission } from '../../lib/permissions'
+import { ForbiddenError } from '../../errors'
 
 export async function list(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -21,7 +23,13 @@ export async function getById(req: Request, res: Response, next: NextFunction): 
 
 export async function create(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const reservation = await reservationsService.createReservation(req.body, req.user!.id)
+    let targetUserId = req.user!.id
+    if (req.body.userId && req.body.userId !== req.user!.id) {
+      const canManage = await hasPermission(req.user!.role, 'MANAGE_RESERVATIONS')
+      if (!canManage) throw new ForbiddenError('MANAGE_RESERVATIONS required to create reservations for other users')
+      targetUserId = req.body.userId
+    }
+    const reservation = await reservationsService.createReservation(req.body, targetUserId)
     res.status(201).json(reservation)
   } catch (err) {
     next(err)

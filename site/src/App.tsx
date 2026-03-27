@@ -12,9 +12,13 @@ import LibrariesPage from './pages/public/LibrariesPage'
 import LibraryDetailPage from './pages/public/LibraryDetailPage'
 import LoginPage from './pages/public/LoginPage'
 import RegisterPage from './pages/public/RegisterPage'
+import ForgotPasswordPage from './pages/public/ForgotPasswordPage'
+import ResetPasswordPage from './pages/public/ResetPasswordPage'
 import DashboardPage from './pages/member/DashboardPage'
 import ManagePage from './pages/admin/ManagePage'
 import AdminPage from './pages/admin/AdminPage'
+import AuditLogPage from './pages/admin/AuditLogPage'
+import AdminSettingsPage from './pages/admin/AdminSettingsPage'
 import GroupsPage from './pages/admin/GroupsPage'
 import ManageBooksPage from './pages/admin/ManageBooksPage'
 import ManageLibrariesPage from './pages/admin/ManageLibrariesPage'
@@ -32,11 +36,13 @@ export default function App() {
   return (
     <QueryClientProvider client={qc}>
       <BrowserRouter>
-        <Toaster position="top-right" richColors offset={{ top: 64 }} />
+        <Toaster position="bottom-right" richColors />
         <Routes>
           {/* Auth pages — no navbar */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* All other pages — with navbar */}
           <Route
@@ -65,6 +71,8 @@ export default function App() {
                   <Route path="/admin" element={<ProtectedRoute roles={['ADMIN']}><AdminPage /></ProtectedRoute>} />
                   <Route path="/admin/groups" element={<ProtectedRoute roles={['ADMIN']}><GroupsPage /></ProtectedRoute>} />
                   <Route path="/admin/users" element={<ProtectedRoute roles={['ADMIN']}><UsersPage /></ProtectedRoute>} />
+                  <Route path="/admin/audit" element={<ProtectedRoute roles={['ADMIN']}><AuditLogPage /></ProtectedRoute>} />
+                  <Route path="/admin/settings" element={<ProtectedRoute roles={['ADMIN']}><AdminSettingsPage /></ProtectedRoute>} />
 
                   {/* Legacy redirects */}
                   <Route path="/admin/books" element={<Navigate to="/manage/books" replace />} />

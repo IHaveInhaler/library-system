@@ -62,3 +62,8 @@ Always consult `site/plan.md` before adding new pages or components to stay alig
 ## Docker
 
 Use `docker-compose.yaml` (NOT `compose.yaml`) for Docker Compose files. This is a hard requirement.
+
+## When told to implement somethng:
+
+- First plan it in the relevant '.md' file; for site that's 'site/plan.md' and for api that's '/api/api.md'
+- After confirming nothing conlicts, then implement it.

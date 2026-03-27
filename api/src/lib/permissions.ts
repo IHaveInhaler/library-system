@@ -15,6 +15,8 @@ export const PERMISSIONS = [
   'MANAGE_MEMBERSHIPS',
   'VIEW_USERS',
   'MANAGE_USERS',
+  'RESET_USER_PASSWORD',
+  'VIEW_AUDIT_LOG',
 ] as const
 
 export type Permission = typeof PERMISSIONS[number]
@@ -38,6 +40,7 @@ export const LIBRARIAN_DEFAULTS: Permission[] = [
   'MANAGE_MEMBERSHIPS',
   'VIEW_USERS',
   'MANAGE_USERS',
+  'RESET_USER_PASSWORD',
 ]
 
 let cache: Map<string, boolean> | null = null

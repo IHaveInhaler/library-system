@@ -14,6 +14,8 @@ import loansRouter from './modules/loans/loans.router'
 import reservationsRouter from './modules/reservations/reservations.router'
 import permissionsRouter from './modules/permissions/permissions.router'
 import groupsRouter from './modules/groups/groups.router'
+import auditRouter from './modules/audit/audit.router'
+import settingsRouter from './modules/settings/settings.router'
 
 export function createApp() {
   const app = express()
@@ -33,6 +35,8 @@ export function createApp() {
   app.use('/api/reservations', authenticate, reservationsRouter)
   app.use('/api/permissions', permissionsRouter)
   app.use('/api/groups', groupsRouter)
+  app.use('/api/audit', authenticate, auditRouter)
+  app.use('/api/settings', authenticate, settingsRouter)
 
   app.use(errorHandler)
 

@@ -1,4 +1,4 @@
-export type Role = 'MEMBER' | 'LIBRARIAN' | 'ADMIN'
+export type Role = string
 export type Genre = 'FICTION' | 'NON_FICTION' | 'SCIENCE' | 'HISTORY' | 'BIOGRAPHY' | 'TECHNOLOGY' | 'ARTS' | 'CHILDREN' | 'REFERENCE' | 'OTHER'
 export type CopyStatus = 'AVAILABLE' | 'ON_LOAN' | 'RESERVED' | 'DAMAGED' | 'RETIRED'
 export type LoanStatus = 'ACTIVE' | 'RETURNED' | 'OVERDUE'
@@ -23,6 +23,7 @@ export interface User {
   lastName: string
   role: Role
   isActive: boolean
+  deactivationReason?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -133,6 +134,18 @@ export interface Reservation {
   notes?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface AuditLog {
+  id: string
+  actorId?: string | null
+  actorName?: string | null
+  action: string
+  targetType?: string | null
+  targetId?: string | null
+  targetName?: string | null
+  metadata?: string | null
+  createdAt: string
 }
 
 export interface AuthResponse {

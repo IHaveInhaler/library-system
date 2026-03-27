@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Users, Plus, X, ChevronRight, BookOpen, Bookmark, Library, Search } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { usersApi } from '../../api/users'
+import { auditApi } from '../../api/audit'
 import { librariesApi } from '../../api/libraries'
 import { booksApi } from '../../api/books'
 import { loansApi } from '../../api/loans'
@@ -17,10 +18,12 @@ import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { extractError } from '../../api/client'
-import type { User, Loan, Reservation, LibraryMembership } from '../../types'
+import type { User, Loan, Reservation, LibraryMembership, AuditLog } from '../../types'
+import { groupsApi } from '../../api/groups'
 
-const ROLES = ['MEMBER', 'LIBRARIAN', 'ADMIN'] as const
-type RoleFilter = '' | 'MEMBER' | 'LIBRARIAN' | 'ADMIN'
+function useGroups() {
+  return useQuery({ queryKey: ['groups'], queryFn: groupsApi.list, staleTime: 60_000 })
+}
 
 // ── Role badge ─────────────────────────────────────────────────────────────────
 function RoleBadge({ role }: { role: string }) {
@@ -31,6 +34,7 @@ function RoleBadge({ role }: { role: string }) {
 // ── Add User Modal ─────────────────────────────────────────────────────────────
 function AddUserModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient()
+  const { data: groups } = useGroups()
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'MEMBER' })
 
   const create = useMutation({
@@ -57,7 +61,7 @@ function AddUserModal({ open, onClose }: { open: boolean; onClose: () => void })
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
           <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+            {(groups ?? []).map((g) => <option key={g.name} value={g.name}>{g.name}</option>)}
           </select>
         </div>
         <div className="flex justify-end gap-2">
@@ -184,6 +188,80 @@ function IssueLoanForUserModal({ user, open, onClose }: { user: User; open: bool
   )
 }
 
+// ── Make Reservation Modal ──────────────────────────────────────────────────────
+function MakeReservationModal({ user, open, onClose }: { user: User; open: boolean; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [bookSearch, setBookSearch] = useState('')
+  const [selectedBook, setSelectedBook] = useState<any | null>(null)
+  const [notes, setNotes] = useState('')
+
+  const { data: books } = useQuery({
+    queryKey: ['books', 'search', bookSearch],
+    queryFn: () => booksApi.list({ search: bookSearch, limit: 8 }),
+    enabled: bookSearch.length >= 1 && !selectedBook,
+  })
+
+  const makeReservation = useMutation({
+    mutationFn: () => reservationsApi.create({ bookId: selectedBook!.id, userId: user.id, notes: notes || undefined }),
+    onSuccess: () => {
+      toast.success('Reservation created')
+      qc.invalidateQueries({ queryKey: ['users', user.id, 'reservations'] })
+      reset(); onClose()
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const reset = () => { setBookSearch(''); setSelectedBook(null); setNotes('') }
+
+  return (
+    <Modal open={open} onClose={() => { reset(); onClose() }} title="Make Reservation">
+      <div className="space-y-4">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5 dark:border-blue-700 dark:bg-blue-900/20">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">{user.firstName} {user.lastName}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Book</label>
+          {selectedBook ? (
+            <div className="flex items-center justify-between rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 dark:border-blue-700 dark:bg-blue-900/20">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedBook.title}</p>
+              <button onClick={() => setSelectedBook(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input value={bookSearch} onChange={(e) => setBookSearch(e.target.value)} placeholder="Search books…"
+                className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500" />
+              {books && books.data.length > 0 && (
+                <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                  {books.data.map((b: any) => (
+                    <li key={b.id}>
+                      <button onClick={() => { setSelectedBook(b); setBookSearch('') }}
+                        className="w-full px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <p className="font-medium text-gray-900 dark:text-white">{b.title}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{b.author}</p>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+        <Input label="Notes (optional)" value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => { reset(); onClose() }}>Cancel</Button>
+          <Button onClick={() => makeReservation.mutate()} loading={makeReservation.isPending} disabled={!selectedBook}>
+            Reserve
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ── Fulfill Reservation Modal (inline, user pre-filled) ────────────────────────
 function FulfillReservationModal({ reservation, open, onClose, onSuccess }: { reservation: Reservation; open: boolean; onClose: () => void; onSuccess: () => void }) {
   const [selectedCopyId, setSelectedCopyId] = useState('')
@@ -231,15 +309,65 @@ function FulfillReservationModal({ reservation, open, onClose, onSuccess }: { re
   )
 }
 
+// ── Deactivate Modal ───────────────────────────────────────────────────────────
+function DeactivateModal({ user, open, onClose, onConfirm }: {
+  user: User
+  open: boolean
+  onClose: () => void
+  onConfirm: (reason: string) => void
+}) {
+  const [reason, setReason] = useState('')
+
+  const handleClose = () => { setReason(''); onClose() }
+
+  return (
+    <Modal open={open} onClose={handleClose} title="Deactivate Account">
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          You are about to deactivate <span className="font-semibold text-gray-900 dark:text-white">{user.firstName} {user.lastName}</span>.
+          They will not be able to log in until reactivated.
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Reason <span className="text-gray-400">(required)</span>
+          </label>
+          <textarea
+            autoFocus
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Violation of terms, pending review…"
+            rows={3}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={handleClose}>Cancel</Button>
+          <Button
+            variant="danger"
+            disabled={!reason.trim()}
+            onClick={() => { onConfirm(reason.trim()); setReason('') }}
+          >
+            Deactivate Account
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ── Manage User Drawer ─────────────────────────────────────────────────────────
 function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }) {
   const { user: currentUser } = useAuth()
   const isSelf = currentUser?.id === user.id
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'details' | 'libraries' | 'loans' | 'reservations'>('details')
+  const { data: groups } = useGroups()
+  const [tab, setTab] = useState<'details' | 'libraries' | 'loans' | 'reservations' | 'activity'>('details')
   const [details, setDetails] = useState({ firstName: user.firstName, lastName: user.lastName, role: user.role })
   const [issueLoanOpen, setIssueLoanOpen] = useState(false)
+  const [makeReservationOpen, setMakeReservationOpen] = useState(false)
   const [fulfillTarget, setFulfillTarget] = useState<Reservation | null>(null)
+  const [deactivateOpen, setDeactivateOpen] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   const updateUser = useMutation({
     mutationFn: () => usersApi.update(user.id, details),
@@ -248,7 +376,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
   })
 
   const toggleActive = useMutation({
-    mutationFn: () => usersApi.setActive(user.id, !user.isActive),
+    mutationFn: (reason?: string) => usersApi.setActive(user.id, !user.isActive, reason),
     onSuccess: () => { toast.success(user.isActive ? 'Account deactivated' : 'Account activated'); qc.invalidateQueries({ queryKey: ['users'] }); onClose() },
     onError: (err) => toast.error(extractError(err)),
   })
@@ -256,6 +384,12 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
   const revokeSessions = useMutation({
     mutationFn: () => usersApi.revokeSessions(user.id),
     onSuccess: () => toast.success('All sessions revoked'),
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const resetPassword = useMutation({
+    mutationFn: () => usersApi.resetPassword(user.id),
+    onSuccess: () => setResetSent(true),
     onError: (err) => toast.error(extractError(err)),
   })
 
@@ -294,6 +428,12 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
     enabled: tab === 'libraries',
   })
 
+  const { data: userAuditLogs } = useQuery({
+    queryKey: ['users', user.id, 'audit'],
+    queryFn: () => auditApi.getUserLogs(user.id, { limit: 50 }),
+    enabled: tab === 'activity',
+  })
+
   // Add membership state
   const [addMem, setAddMem] = useState(false)
   const [memForm, setMemForm] = useState({ libraryId: '', membershipType: 'PERMANENT', endDate: '' })
@@ -319,7 +459,7 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
     onError: (err) => toast.error(extractError(err)),
   })
 
-  const tabs = ['details', 'libraries', 'loans', 'reservations'] as const
+  const tabs = ['details', 'libraries', 'loans', 'reservations', 'activity'] as const
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -365,37 +505,57 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
-                <select value={details.role} onChange={(e) => setDetails({ ...details, role: e.target.value as typeof ROLES[number] })}
+                <select value={details.role} onChange={(e) => setDetails({ ...details, role: e.target.value })}
                   disabled={isSelf}
                   title={isSelf ? 'You cannot change your own role' : undefined}
                   className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-                  {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                  {(groups ?? []).map((g) => <option key={g.name} value={g.name}>{g.name}</option>)}
                 </select>
               </div>
               <div className="pt-2">
                 <Button onClick={() => updateUser.mutate()} loading={updateUser.isPending}>Save changes</Button>
               </div>
 
+              {/* Deactivation reason */}
+              {!user.isActive && user.deactivationReason && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-700/50 dark:bg-amber-900/20">
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400">Deactivation reason</p>
+                  <p className="mt-0.5 text-sm text-amber-800 dark:text-amber-300">{user.deactivationReason}</p>
+                </div>
+              )}
+
               {/* Account actions */}
-              <div className="mt-2 flex flex-wrap gap-2 border-t border-gray-100 pt-4 dark:border-gray-700">
-                <Button
-                  variant="secondary"
-                  disabled={isSelf}
-                  title={isSelf ? 'Cannot change your own account status' : undefined}
-                  onClick={() => toggleActive.mutate()}
-                  loading={toggleActive.isPending}
-                >
-                  {user.isActive ? 'Deactivate Account' : 'Activate Account'}
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => revokeSessions.mutate()}
-                  loading={revokeSessions.isPending}
-                >
-                  Revoke Sessions
-                </Button>
+              <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 dark:border-gray-700">
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant="secondary"
+                    disabled={isSelf}
+                    title={isSelf ? 'Cannot change your own account status' : undefined}
+                    onClick={() => user.isActive ? setDeactivateOpen(true) : toggleActive.mutate(undefined)}
+                    loading={toggleActive.isPending}
+                  >
+                    {user.isActive ? 'Deactivate' : 'Activate'}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => revokeSessions.mutate()}
+                    loading={revokeSessions.isPending}
+                  >
+                    Revoke Sessions
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={isSelf}
+                    title={isSelf ? 'Cannot reset your own password this way' : undefined}
+                    onClick={() => resetPassword.mutate()}
+                    loading={resetPassword.isPending}
+                  >
+                    Reset Password
+                  </Button>
+                </div>
                 {currentUser?.role === 'ADMIN' && (
                   <Button
+                    className="w-full"
                     variant="danger"
                     disabled={isSelf}
                     title={isSelf ? 'Cannot delete your own account' : undefined}
@@ -519,6 +679,9 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
           {/* ── Reservations ── */}
           {tab === 'reservations' && (
             <div className="space-y-2">
+              <div className="flex justify-end">
+                <Button variant="secondary" onClick={() => setMakeReservationOpen(true)}><Plus className="h-4 w-4" /> Make Reservation</Button>
+              </div>
               {!reservations ? <PageSpinner /> : reservations.length === 0 ? (
                 <EmptyState icon={Bookmark} title="No reservations" />
               ) : reservations.map((r: Reservation) => (
@@ -540,9 +703,57 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
               ))}
             </div>
           )}
+
+          {/* ── Activity ── */}
+          {tab === 'activity' && (
+            <div className="space-y-2">
+              {!userAuditLogs ? <PageSpinner /> : userAuditLogs.data.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No activity recorded.</p>
+              ) : userAuditLogs.data.map((log: AuditLog) => (
+                <div key={log.id} className="rounded-lg border border-gray-100 p-3 dark:border-gray-700">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-300">
+                      {log.action.replace(/_/g, ' ')}
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </span>
+                  </div>
+                  {log.actorId !== user.id && log.actorName && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">by {log.actorName}</p>
+                  )}
+                  {log.targetName && log.actorId === user.id && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {log.targetType}: {log.targetName}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+      <DeactivateModal
+        user={user}
+        open={deactivateOpen}
+        onClose={() => setDeactivateOpen(false)}
+        onConfirm={(reason) => { toggleActive.mutate(reason); setDeactivateOpen(false) }}
+      />
+      {resetSent && (
+        <Modal open={resetSent} onClose={() => setResetSent(false)} title="Reset Link Sent">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              A password reset link has been sent to <span className="font-semibold text-gray-900 dark:text-white">{user.email}</span>.
+              If SMTP is not configured, the link has been logged to the server console.
+            </p>
+            <div className="flex justify-end">
+              <Button onClick={() => setResetSent(false)}>Done</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
       <IssueLoanForUserModal user={user} open={issueLoanOpen} onClose={() => setIssueLoanOpen(false)} />
+      <MakeReservationModal user={user} open={makeReservationOpen} onClose={() => setMakeReservationOpen(false)} />
       {fulfillTarget && (
         <FulfillReservationModal
           reservation={fulfillTarget}
@@ -564,11 +775,12 @@ export default function UsersPage() {
   const [addOpen, setAddOpen] = useState(false)
   const [managed, setManaged] = useState<User | null>(null)
 
+  const { data: groups } = useGroups()
   const page = Number(params.get('page') ?? 1)
   const search = params.get('search') ?? ''
-  const role = (params.get('role') ?? '') as RoleFilter
+  const role = params.get('role') ?? ''
   const [searchInput, setSearchInput] = useState(search)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   const handleSearchChange = useCallback((val: string) => {
     setSearchInput(val)
@@ -611,16 +823,16 @@ export default function UsersPage() {
             className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
           />
         </div>
-        <div className="flex gap-1">
-          {(['', ...ROLES] as const).map((r) => (
-            <button key={r} onClick={() => setParam('role', r)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${role === r
-                ? 'bg-blue-600 text-white'
-                : 'border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}`}>
-              {r || 'All'}
-            </button>
+        <select
+          value={role}
+          onChange={(e) => setParam('role', e.target.value)}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        >
+          <option value="">All roles</option>
+          {(groups ?? []).map((g) => (
+            <option key={g.name} value={g.name}>{g.name}</option>
           ))}
-        </div>
+        </select>
       </div>
 
       {isLoading ? <PageSpinner /> : !data?.data.length ? (
