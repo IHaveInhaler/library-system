@@ -1,0 +1,20 @@
+import { api } from './client'
+import type { User, Loan, Reservation, PaginatedResponse } from '../types'
+
+export const usersApi = {
+  create: (data: { email: string; password: string; firstName: string; lastName: string; role?: string }) =>
+    api.post<User>('/users', data).then((r) => r.data),
+
+  list: (params: { page?: number; limit?: number; role?: string; search?: string; isActive?: string } = {}) =>
+    api.get<PaginatedResponse<User>>('/users', { params }).then((r) => r.data),
+
+  get: (id: string) => api.get<User>(`/users/${id}`).then((r) => r.data),
+
+  update: (id: string, data: { role?: string; isActive?: boolean; firstName?: string; lastName?: string }) =>
+    api.patch<User>(`/users/${id}`, data).then((r) => r.data),
+
+  loans: (id: string) => api.get<Loan[]>(`/users/${id}/loans`).then((r) => r.data),
+
+  reservations: (id: string) =>
+    api.get<Reservation[]>(`/users/${id}/reservations`).then((r) => r.data),
+}

@@ -1,0 +1,148 @@
+import { prisma } from '../../lib/prisma'
+import { NotFoundError, BadRequestError, ConflictError } from '../../errors/index'
+import { fetchByIsbn } from '../../lib/openLibrary'
+import { CreateBookInput, UpdateBookInput, BookQueryInput, IsbnLookupInput } from './books.schemas'
+import { getAccessibleLibraryIds } from '../../lib/libraryAccess'
+
+export async function listBooks(query: BookQueryInput, userId?: string, userRole?: string) {
+  const { page, limit, genre, search, author, language } = query
+  const skip = (page - 1) * limit
+
+  const accessibleIds = await getAccessibleLibraryIds(userId, userRole)
+
+  const where = {
+    ...(accessibleIds && {
+      copies: { some: { shelf: { libraryId: { in: accessibleIds } } } },
+    }),
+    ...(genre && { genre }),
+    ...(language && { language }),
+    ...(author && { author: { contains: author } }),
+    ...(search && {
+      OR: [
+        { title: { contains: search } },
+        { author: { contains: search } },
+        { isbn: { contains: search } },
+        { description: { contains: search } },
+      ],
+    }),
+  }
+
+  const [data, total] = await prisma.$transaction([
+    prisma.book.findMany({
+      where,
+      skip,
+      take: limit,
+      include: { _count: { select: { copies: true } } },
+      orderBy: { title: 'asc' },
+    }),
+    prisma.book.count({ where }),
+  ])
+
+  // Compute availableCount restricted to accessible libraries
+  const dataWithCount = await Promise.all(
+    data.map(async (book) => {
+      const availableCount = await prisma.bookCopy.count({
+        where: {
+          bookId: book.id,
+          status: 'AVAILABLE',
+          ...(accessibleIds && { shelf: { libraryId: { in: accessibleIds } } }),
+        },
+      })
+      return { ...book, availableCount }
+    }),
+  )
+
+  return { data: dataWithCount, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } }
+}
+
+export async function getBook(id: string, userId?: string, userRole?: string) {
+  const book = await prisma.book.findUnique({
+    where: { id },
+    include: { _count: { select: { copies: true } } },
+  })
+  if (!book) throw new NotFoundError('Book')
+
+  const accessibleIds = await getAccessibleLibraryIds(userId, userRole)
+
+  const availableCount = await prisma.bookCopy.count({
+    where: {
+      bookId: id,
+      status: 'AVAILABLE',
+      ...(accessibleIds && { shelf: { libraryId: { in: accessibleIds } } }),
+    },
+  })
+
+  return { ...book, availableCount }
+}
+
+export async function createBook(input: CreateBookInput) {
+  return prisma.book.create({ data: input })
+}
+
+export async function updateBook(id: string, input: UpdateBookInput) {
+  await getBook(id)
+  return prisma.book.update({ where: { id }, data: input })
+}
+
+export async function deleteBook(id: string) {
+  await getBook(id)
+
+  const activeCopies = await prisma.bookCopy.count({
+    where: { bookId: id, status: { in: ['AVAILABLE', 'ON_LOAN', 'RESERVED'] } },
+  })
+
+  if (activeCopies > 0) {
+    throw new BadRequestError('Cannot delete a book with active copies')
+  }
+
+  return prisma.book.delete({ where: { id } })
+}
+
+export async function getBookCopies(bookId: string, userId?: string, userRole?: string) {
+  await getBook(bookId, userId, userRole)
+
+  const accessibleIds = await getAccessibleLibraryIds(userId, userRole)
+
+  return prisma.bookCopy.findMany({
+    where: {
+      bookId,
+      ...(accessibleIds && { shelf: { libraryId: { in: accessibleIds } } }),
+    },
+    include: {
+      shelf: {
+        include: { library: { select: { id: true, name: true } } },
+      },
+    },
+    orderBy: { barcode: 'asc' },
+  })
+}
+
+export async function lookupIsbn(isbn: string) {
+  const existing = await prisma.book.findUnique({ where: { isbn: isbn.replace(/[-\s]/g, '') } })
+  if (existing) {
+    return { source: 'database' as const, book: existing, alreadyExists: true }
+  }
+
+  const metadata = await fetchByIsbn(isbn)
+  if (!metadata) {
+    throw new NotFoundError(`No book found for ISBN ${isbn}`)
+  }
+
+  return { source: 'openlibrary' as const, book: metadata, alreadyExists: false }
+}
+
+export async function createBookFromIsbn(input: IsbnLookupInput) {
+  const cleanIsbn = input.isbn.replace(/[-\s]/g, '')
+
+  const existing = await prisma.book.findUnique({ where: { isbn: cleanIsbn } })
+  if (existing) throw new ConflictError(`Book with ISBN ${cleanIsbn} already exists`)
+
+  const metadata = await fetchByIsbn(cleanIsbn)
+  if (!metadata) {
+    throw new NotFoundError(`No book data found for ISBN ${cleanIsbn}`)
+  }
+
+  if (input.genre) metadata.genre = input.genre
+
+  return prisma.book.create({ data: metadata })
+}

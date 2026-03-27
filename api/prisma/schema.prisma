@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         String   @default("MEMBER") // MEMBER | LIBRARIAN | ADMIN
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  loans         Loan[]
+  reservations  Reservation[]
+  refreshTokens RefreshToken[]
+  memberships   LibraryMembership[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+}
+
+model Library {
+  id          String   @id @default(uuid())
+  name        String
+  labelPrefix String   @unique // 3-letter prefix used in shelf labels e.g. "CEN"
+  email       String?  @unique
+  isActive    Boolean  @default(true)
+  isPrivate   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  shelves     Shelf[]
+  memberships LibraryMembership[]
+}
+
+model LibraryMembership {
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  libraryId      String
+  library        Library   @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  membershipType String    @default("PERMANENT") // PERMANENT | MONTHLY | FIXED
+  startDate      DateTime  @default(now())
+  endDate        DateTime?
+  isActive       Boolean   @default(true)
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([userId, libraryId])
+}
+
+model Shelf {
+  id        String   @id @default(uuid())
+  code      String   // short identifier e.g. "A-01"
+  label     String   @unique // generated physical label e.g. "CEN-L08097"
+  location  String?  // human-readable e.g. "Second floor, east wing, Row 3"
+  position  String   @default("L") // L | M | R (Left | Middle | Right)
+  genre     String   // FICTION | NON_FICTION | SCIENCE | HISTORY | BIOGRAPHY | TECHNOLOGY | ARTS | CHILDREN | REFERENCE | OTHER
+  capacity  Int      @default(100)
+  libraryId String
+  library   Library  @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookCopies BookCopy[]
+
+  @@unique([libraryId, code])
+}
+
+model Book {
+  id            String   @id @default(uuid())
+  isbn          String   @unique
+  title         String
+  author        String
+  publisher     String?
+  publishedYear Int?
+  genre         String   // same genre values as Shelf
+  description   String?
+  coverUrl      String?
+  totalPages    Int?
+  language      String   @default("en")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  copies       BookCopy[]
+  reservations Reservation[]
+}
+
+model BookCopy {
+  id         String   @id @default(uuid())
+  barcode    String   @unique
+  condition  String   @default("GOOD") // GOOD | FAIR | POOR
+  status     String   @default("AVAILABLE") // AVAILABLE | ON_LOAN | RESERVED | DAMAGED | RETIRED
+  bookId     String
+  book       Book     @relation(fields: [bookId], references: [id])
+  shelfId    String
+  shelf      Shelf    @relation(fields: [shelfId], references: [id])
+  acquiredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  loans        Loan[]
+  reservations Reservation[]
+}
+
+model Loan {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  bookCopyId String
+  bookCopy   BookCopy  @relation(fields: [bookCopyId], references: [id])
+  status     String    @default("ACTIVE") // ACTIVE | RETURNED | OVERDUE
+  borrowedAt DateTime  @default(now())
+  dueDate    DateTime
+  returnedAt DateTime?
+  renewCount Int       @default(0)
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model RolePermission {
+  id         String   @id @default(uuid())
+  role       String   // MEMBER | LIBRARIAN (ADMIN always granted, not stored)
+  permission String
+  granted    Boolean  @default(false)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([role, permission])
+}
+
+model Reservation {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  bookId      String
+  book        Book      @relation(fields: [bookId], references: [id])
+  bookCopyId  String?
+  bookCopy    BookCopy? @relation(fields: [bookCopyId], references: [id])
+  status      String    @default("PENDING") // PENDING | FULFILLED | CANCELLED | EXPIRED
+  reservedAt  DateTime  @default(now())
+  expiresAt   DateTime?
+  fulfilledAt DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}

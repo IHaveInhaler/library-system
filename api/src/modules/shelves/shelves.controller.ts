@@ -1,0 +1,47 @@
+import { Request, Response, NextFunction } from 'express'
+import * as shelvesService from './shelves.service'
+
+export async function list(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await shelvesService.listShelves(req.query as any)
+    res.json(result)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function getById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const shelf = await shelvesService.getShelf(req.params.id as string)
+    res.json(shelf)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function create(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const shelf = await shelvesService.createShelf(req.body)
+    res.status(201).json(shelf)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function update(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const shelf = await shelvesService.updateShelf(req.params.id as string, req.body)
+    res.json(shelf)
+  } catch (err) {
+    next(err)
+  }
+}
+
+export async function remove(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await shelvesService.deleteShelf(req.params.id as string)
+    res.status(204).send()
+  } catch (err) {
+    next(err)
+  }
+}
