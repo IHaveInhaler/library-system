@@ -555,6 +555,7 @@ function TwoFactorSettings() {
   const { data: groups, isLoading: groupsLoading } = useQuery({ queryKey: ['groups'], queryFn: groupsApi.list })
 
   const [requiredRoles, setRequiredRoles] = useState<string[]>([])
+  const [securityKeysOnly, setSecurityKeysOnly] = useState(false)
 
   useEffect(() => {
     if (settingsData) {
@@ -564,6 +565,7 @@ function TwoFactorSettings() {
       } catch {
         setRequiredRoles([])
       }
+      setSecurityKeysOnly(settingsData.settings['2fa.securityKeysOnly'] === 'true')
     }
   }, [settingsData])
 
@@ -576,6 +578,7 @@ function TwoFactorSettings() {
   const save = useMutation({
     mutationFn: () => settingsApi.update({
       '2fa.requiredRoles': JSON.stringify(requiredRoles),
+      '2fa.securityKeysOnly': securityKeysOnly ? 'true' : 'false',
     }),
     onSuccess: (res) => { toast.success('2FA settings saved'); qc.setQueryData(['settings'], res) },
     onError: (err) => toast.error(extractError(err)),
@@ -624,6 +627,24 @@ function TwoFactorSettings() {
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400">No groups found.</p>
         )}
+
+        <label className="flex items-center justify-between cursor-pointer rounded-lg border border-gray-100 px-4 py-3 dark:border-gray-700">
+          <div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Security keys only</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              When enabled, only hardware security keys are accepted — TOTP codes will be rejected for enforced roles.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={securityKeysOnly}
+            onClick={() => setSecurityKeysOnly(!securityKeysOnly)}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${securityKeysOnly ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}
+          >
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${securityKeysOnly ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </label>
 
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-400">
           When developer mode is enabled, 2FA requirements are bypassed.

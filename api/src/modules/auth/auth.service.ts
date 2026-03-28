@@ -119,13 +119,14 @@ export async function login(input: LoginInput) {
   // Check if 2FA is required
   const has2FA = user.totpVerified || (await prisma.securityKey.count({ where: { userId: user.id } })) > 0
   const devMode = (await getSetting('dev.enabled')) === 'true'
+  const securityKeysOnly = (await getSetting('2fa.securityKeysOnly')) === 'true'
 
   if (has2FA && !devMode) {
     const methods: string[] = []
-    if (user.totpVerified) methods.push('totp')
+    if (user.totpVerified && !securityKeysOnly) methods.push('totp')
     const keyCount = await prisma.securityKey.count({ where: { userId: user.id } })
     if (keyCount > 0) methods.push('securityKey')
-    return { userId: user.id, requires2FA: true, methods }
+    if (methods.length > 0) return { userId: user.id, requires2FA: true, methods }
   }
 
   // Check if 2FA is required by role but not set up

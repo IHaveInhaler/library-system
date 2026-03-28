@@ -5,6 +5,7 @@ export interface TwoFactorStatus {
   totpEnabled: boolean
   securityKeyCount: number
   required: boolean
+  securityKeysOnly: boolean
   enforced: boolean
 }
 

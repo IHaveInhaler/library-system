@@ -192,6 +192,7 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
     // Check if 2FA is required for this user's role
     const requiredRolesJson = await getSetting('2fa.requiredRoles')
     const devMode = (await getSetting('dev.enabled')) === 'true'
+    const securityKeysOnly = (await getSetting('2fa.securityKeysOnly')) === 'true'
     let required = false
     if (!devMode && requiredRolesJson) {
       try { required = JSON.parse(requiredRolesJson).includes(user.role) } catch { /* ignore */ }
@@ -201,7 +202,8 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
       totpEnabled: user.totpVerified,
       securityKeyCount: keyCount,
       required,
-      enforced: required && !user.totpVerified && keyCount === 0,
+      securityKeysOnly,
+      enforced: required && (securityKeysOnly ? keyCount === 0 : !user.totpVerified && keyCount === 0),
     })
   } catch (err) { next(err) }
 })

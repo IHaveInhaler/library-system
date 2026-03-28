@@ -20,6 +20,7 @@ export type SettingKey =
   | 'brand.faviconUrl'
   | '2fa.requiredRoles'
   | '2fa.methods'
+  | '2fa.securityKeysOnly'
 
 export type SettingsResponse = {
   settings: Record<SettingKey, string>

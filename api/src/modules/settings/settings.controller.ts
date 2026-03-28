@@ -22,6 +22,7 @@ const ALLOWED_KEYS = [
   'brand.faviconUrl',
   '2fa.requiredRoles',
   '2fa.methods',
+  '2fa.securityKeysOnly',
 ]
 
 async function buildSettingsResponse() {
