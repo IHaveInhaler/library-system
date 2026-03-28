@@ -11,5 +11,10 @@ export const createAdminSchema = z.object({
   lastName: z.string().min(1),
 })
 
+export const factoryResetSchema = z.object({
+  confirm: z.literal('FACTORY_RESET'),
+})
+
 export type VerifyCodeInput = z.infer<typeof verifyCodeSchema>
 export type CreateAdminInput = z.infer<typeof createAdminSchema>
+export type FactoryResetInput = z.infer<typeof factoryResetSchema>

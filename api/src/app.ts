@@ -27,6 +27,7 @@ import barcodesRouter from './modules/barcodes/barcodes.router'
 import bookNotesRouter from './modules/bookNotes/bookNotes.router'
 import twoFactorRouter from './modules/twoFactor/twoFactor.router'
 import setupRouter from './modules/setup/setup.router'
+import backupsRouter from './modules/backups/backups.router'
 
 export function createApp() {
   const app = express()
@@ -80,6 +81,7 @@ export function createApp() {
   app.use('/api/auth/login', authLimiter)
   app.use('/api/auth/register', authLimiter)
   app.use('/api/auth/forgot-password', authLimiter)
+  app.use('/api/auth/reset-password', authLimiter)
   app.use('/api/auth/verify-email', authLimiter)
   app.use('/api/auth/2fa/challenge', authLimiter)
 
@@ -98,6 +100,7 @@ export function createApp() {
   app.use('/api/membership-types', membershipTypesRouter)
   app.use('/api/books', authenticate, bookNotesRouter) // book notes routes (nested under /books/:bookId/notes)
   app.use('/api/audit', authenticate, auditRouter)
+  app.use('/api/backups', backupsRouter)
   app.get('/api/settings/public', getPublicSettings)
   app.use('/api/settings', authenticate, settingsRouter)
   app.use('/api', uploadRoutes)

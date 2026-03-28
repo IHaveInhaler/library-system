@@ -79,22 +79,25 @@ If a generated label collides, it retries up to 10 times with new random values.
 ## Book Copy Barcodes (DataMatrix)
 
 **Setting**: `barcode.copyFormat`
-**Default**: `{PREFIX}-{ISBN}-{SEQ}`
-**Example**: `CEN-273565-001`
+**Default**: `{ISBN}-{DIGITS}-{CHECK}`
+**Example**: `9780140449136-0001-7`
 
 ### Variables
 
 | Variable | Description | Example |
 |----------|-------------|---------|
+| `{ISBN}` | Full ISBN with dashes/spaces stripped | `9780140449136` |
+| `{DIGITS}` | Sequential copy number (zero-padded, 4 digits) | `0001` |
+| `{CHECK}` | Luhn mod-10 check digit computed from all numeric chars | `7` |
 | `{PREFIX}` | Library label prefix | `CEN` |
-| `{ISBN}` | Last 6 digits of book ISBN | `273565` |
-| `{SEQ}` | Sequential copy number (zero-padded) | `001` |
+| `{SEQ}` | Sequential copy number (zero-padded, 3 digits) | `001` |
 | `{RANDOM}` | 6 random hex chars | `A3F9B2` |
 
 ### Generation
 
-Generated automatically when a book copy is created (if no barcode is provided manually).
-Sequential numbering is per-book — first copy gets `001`, second gets `002`, etc.
+Generated automatically when a book copy is created — barcodes cannot be set manually.
+Sequential numbering is per-book — first copy gets `0001`, second gets `0002`, etc.
+The `{CHECK}` digit is a Luhn mod-10 checksum over all numeric characters in the barcode (excluding the check digit itself), ensuring scanner-readability and error detection.
 Uniqueness is enforced with retry logic.
 
 ---
@@ -212,22 +215,37 @@ Uses `window.print()` with print-optimised CSS.
 - Human-readable text below
 - Optional: library name, shelf code, book title (truncated)
 
-### Approach 2: Thermal Printer (Dedicated Label Printer)
+### Approach 2: ZPL (Zebra Thermal Printer)
 
-For high-volume with Zebra, DYMO, Brother QL thermal printers.
+For high-volume printing with Zebra thermal label printers. The server generates ZPL commands and sends them directly to the printer over TCP (port 9100).
 
-**Settings** (`/admin/settings` → Barcodes):
+**Settings** (`/admin/settings` → Printing):
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `barcode.printerType` | `browser` | `browser` or `thermal` |
-| `barcode.labelWidth` | `50` | Label width in mm |
-| `barcode.labelHeight` | `25` | Label height in mm |
-| `barcode.thermalDPI` | `203` | Printer DPI (203, 300, 600) |
+| `print.method` | `browser` | `browser`, `zpl`, or `ipp` |
+| `print.zpl.host` | — | Printer IP address or hostname |
+| `print.zpl.port` | `9100` | Raw TCP port |
+| `print.zpl.labelWidth` | `50` | Label width in mm |
+| `print.zpl.labelHeight` | `25` | Label height in mm |
 
-**Thermal printer methods**:
-1. **ZPL output** (Zebra): `GET /api/barcodes/zpl/:type/:code` → raw ZPL II commands
-2. **Image-based** (DYMO/Brother): Generate PNG at correct DPI, print via browser plugin
-3. **Raw TCP** (advanced): Send ZPL directly to printer IP
+### Approach 3: IPP (Network Printer)
+
+Sends barcode images to any IPP-compatible network printer (most modern printers).
+
+**Settings** (`/admin/settings` → Printing):
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `print.ipp.printerUrl` | — | Full IPP URL, e.g. `http://192.168.1.50:631/ipp/print` |
+
+### Print API
+
+```
+POST /api/barcodes/print
+Body: { type: 'shelf' | 'copy', code: 'barcode-string' }
+```
+
+Sends a print job using the configured method. Returns `{ success, method, message }`.
+For `browser` method, returns error — frontend handles browser printing directly.
 
 ### Print Queue
 

@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 import { prisma } from '../../lib/prisma'
 import { hashPassword, comparePassword } from '../../lib/password'
-import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../lib/jwt'
+import { signAccessToken, signRefreshToken, verifyRefreshToken, sign2FAChallenge } from '../../lib/jwt'
 import { ConflictError, UnauthorizedError, NotFoundError, BadRequestError, ForbiddenError } from '../../errors'
 import { env } from '../../config/env'
 import { getSetting, getSettings } from '../../lib/settings'
@@ -111,14 +111,14 @@ export async function verifyEmail(email: string, code: string) {
 export async function login(input: LoginInput) {
   const user = await prisma.user.findUnique({ where: { email: input.email } })
   if (!user || !user.isActive) throw new UnauthorizedError('Invalid credentials')
-  if (!user.emailVerified) throw new UnauthorizedError('Please verify your email before logging in')
+  if (!user.emailVerified) throw new UnauthorizedError('Invalid credentials')
 
   const valid = await comparePassword(input.password, user.passwordHash)
   if (!valid) throw new UnauthorizedError('Invalid credentials')
 
   // Check if 2FA is required
   const has2FA = user.totpVerified || (await prisma.securityKey.count({ where: { userId: user.id } })) > 0
-  const devMode = (await getSetting('dev.enabled')) === 'true'
+  const devMode = process.env.NODE_ENV === 'development'
   const securityKeysOnly = (await getSetting('2fa.securityKeysOnly')) === 'true'
 
   if (has2FA && !devMode) {
@@ -126,10 +126,13 @@ export async function login(input: LoginInput) {
     if (user.totpVerified && !securityKeysOnly) methods.push('totp')
     const keyCount = await prisma.securityKey.count({ where: { userId: user.id } })
     if (keyCount > 0) methods.push('securityKey')
-    if (methods.length > 0) return { userId: user.id, requires2FA: true, methods }
+    if (methods.length > 0) {
+      const challengeToken = sign2FAChallenge(user.id)
+      return { challengeToken, requires2FA: true, methods }
+    }
   }
 
-  // Check if 2FA is required by role but not set up
+  // Check if 2FA is required by role but not set up (uses same devMode from NODE_ENV)
   if (!devMode) {
     const requiredRolesJson = await getSetting('2fa.requiredRoles')
     if (requiredRolesJson) {
@@ -265,7 +268,7 @@ export async function getMe(userId: string) {
   const has2FA = fullUser?.totpVerified || keyCount > 0
 
   let requires2FASetup = false
-  const devMode = (await getSetting('dev.enabled')) === 'true'
+  const devMode = process.env.NODE_ENV === 'development'
 
   // Admin-forced pending 2FA (clears automatically once 2FA is set up)
   if (fullUser?.pending2FA && !has2FA && !devMode) {

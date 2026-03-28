@@ -44,6 +44,12 @@ export interface Library {
   createdAt: string
   updatedAt: string
   _count?: { shelves: number }
+  printMethod?: string | null
+  printZplHost?: string | null
+  printZplPort?: string | null
+  printZplLabelWidth?: string | null
+  printZplLabelHeight?: string | null
+  printIppUrl?: string | null
 }
 
 export interface LibraryMembership {

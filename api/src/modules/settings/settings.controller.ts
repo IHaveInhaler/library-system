@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { prisma } from '../../lib/prisma'
 import { getLockedKeys } from '../../lib/settings'
+import { logAction } from '../../lib/audit'
 
 const ALLOWED_KEYS = [
   'smtp.enabled',
@@ -31,6 +32,12 @@ const ALLOWED_KEYS = [
   'images.avatarMaxSizeMB',
   'images.libraryMaxSizeMB',
   'shelf.positions',
+  'print.method',
+  'print.zpl.host',
+  'print.zpl.port',
+  'print.zpl.labelWidth',
+  'print.zpl.labelHeight',
+  'print.ipp.printerUrl',
 ]
 
 async function buildSettingsResponse() {
@@ -70,9 +77,22 @@ export async function getPublicSettings(_req: Request, res: Response, next: Next
   } catch (err) { next(err) }
 }
 
-export async function getSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
+const SENSITIVE_PREFIXES = ['smtp.', 'reg.token']
+
+export async function getSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    res.json(await buildSettingsResponse())
+    const data = await buildSettingsResponse()
+
+    // Non-admin users should not see sensitive settings
+    if (req.user?.role !== 'ADMIN') {
+      for (const key of Object.keys(data.settings)) {
+        if (SENSITIVE_PREFIXES.some((prefix) => key.startsWith(prefix))) {
+          delete data.settings[key]
+        }
+      }
+    }
+
+    res.json(data)
   } catch (err) { next(err) }
 }
 
@@ -86,6 +106,7 @@ const KEY_PERMISSIONS: Record<string, string> = {
   '2fa.': 'CONFIGURE_2FA',
   'shelf.': 'CONFIGURE_BARCODES',
   'barcode.': 'CONFIGURE_BARCODES',
+  'print.': 'CONFIGURE_BARCODES',
   'images.': 'CONFIGURE_IMAGES',
   'dev.': 'ADMIN', // Dev mode is admin-only, not permission-based
 }
@@ -127,6 +148,13 @@ export async function updateSettings(req: Request, res: Response, next: NextFunc
     await Promise.all(filtered.map(([key, value]) =>
       prisma.systemSetting.upsert({ where: { key }, create: { key, value }, update: { value } })
     ))
+    logAction({
+      actorId: req.user!.id,
+      actorName: req.user!.email,
+      action: 'SETTINGS_UPDATED',
+      targetType: 'Settings',
+      metadata: { keys: filtered.map(([k]) => k) },
+    })
     res.json(await buildSettingsResponse())
   } catch (err) { next(err) }
 }

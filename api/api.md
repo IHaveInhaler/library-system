@@ -93,6 +93,83 @@ Deletes all data from every table (users, books, libraries, loans, groups, setti
 
 ---
 
+## Backups
+
+Database backup system with automatic daily backups, pre-deletion backups, and restore via security key verification.
+
+### Storage
+
+Backups are SQLite `.db` file copies stored in `/app/data/backups/` (Docker) or `api/backups/` (dev). Each backup file is named `backup-{timestamp}.db` with metadata stored in a `backups.json` index file alongside.
+
+### Routes
+
+#### `GET /api/backups`
+Requires: ADMIN role.
+Returns list of all backups with metadata.
+```json
+{
+  "backups": [
+    {
+      "id": "abc123",
+      "filename": "backup-2026-03-28T20-15-00.db",
+      "size": 1048576,
+      "reason": "scheduled" | "pre-delete" | "manual",
+      "note": "Daily backup" | "Before deleting Central Library" | "Manual backup",
+      "createdAt": "2026-03-28T20:15:00.000Z"
+    }
+  ]
+}
+```
+
+#### `POST /api/backups`
+Requires: ADMIN role.
+Creates a manual backup.
+```json
+// Request (optional)
+{ "note": "Before major changes" }
+// Response
+{ "id": "abc123", "filename": "backup-...", "size": 1048576, "reason": "manual", "createdAt": "..." }
+```
+
+#### `DELETE /api/backups/:id`
+Requires: ADMIN role.
+Deletes a specific backup file.
+
+#### `POST /api/backups/:id/restore`
+Requires: ADMIN role + security key (WebAuthn) verification.
+Restores the database from a backup. This is destructive — replaces current data.
+
+**Flow:**
+1. Frontend calls `POST /api/backups/:id/restore` with `{ step: 'challenge' }`
+2. API returns WebAuthn authentication options (challenge)
+3. User authenticates with security key
+4. Frontend calls again with `{ step: 'verify', credential: {...} }`
+5. API verifies the security key, then performs the restore
+6. On success, all sessions are invalidated — user must re-login
+
+If the user has no security keys registered, falls back to requiring a confirmation code printed in the API's docker-compose logs (similar to setup wizard code).
+
+#### `GET /api/backups/:id/download`
+Requires: ADMIN role.
+Downloads the raw backup `.db` file.
+
+### Automatic Backups
+
+- **Daily**: A cron job (node-cron) runs at 02:00 AM server time, creates a backup with reason `scheduled`
+- **Pre-delete**: Before a library hard-delete or factory reset, a backup is automatically created with reason `pre-delete`
+- **Retention**: Scheduled backups older than 30 days are auto-pruned (keeps minimum 5). Manual and pre-delete backups are never auto-pruned.
+
+### Frontend
+
+Page at `/admin/backups`:
+- List all backups (date, size, reason, note)
+- "Create Backup" button
+- Download button per backup
+- Restore button per backup (triggers security key flow or console code)
+- Delete button per backup
+
+---
+
 ## Auth
 
 ### Registration Settings

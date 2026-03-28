@@ -10,6 +10,12 @@ export const createLibrarySchema = z.object({
 export const updateLibrarySchema = createLibrarySchema.partial().extend({
   isActive: z.boolean().optional(),
   isPrivate: z.boolean().optional(),
+  printMethod: z.enum(['browser', 'zpl', 'ipp']).nullable().optional(),
+  printZplHost: z.string().max(255).nullable().optional(),
+  printZplPort: z.string().max(10).nullable().optional(),
+  printZplLabelWidth: z.string().max(10).nullable().optional(),
+  printZplLabelHeight: z.string().max(10).nullable().optional(),
+  printIppUrl: z.string().max(500).nullable().optional(),
 })
 
 export const libraryQuerySchema = z.object({

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { BookOpen, Search, X, Plus, Trash2, AlertTriangle, Upload, Image as ImageIcon } from 'lucide-react'
+import { PrintButton } from './BarcodesPage'
 import { booksApi } from '../../api/books'
 import { copiesApi } from '../../api/copies'
 import { loansApi } from '../../api/loans'
@@ -88,7 +89,7 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
 
   // Add copy form
   const [addCopy, setAddCopy] = useState(false)
-  const [copyForm, setCopyForm] = useState({ barcode: '', shelfSearch: '', shelfId: '', condition: 'GOOD' })
+  const [copyForm, setCopyForm] = useState({ shelfSearch: '', shelfId: '', condition: 'GOOD' })
   const [shelfQuery, setShelfQuery] = useState('')
 
   const { data: shelves } = useQuery({
@@ -98,14 +99,11 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
   })
 
   const createCopy = useMutation({
-    mutationFn: () => {
-      const barcode = copyForm.barcode.trim() || `BC-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`
-      return copiesApi.create({ barcode, bookId: book.id, shelfId: copyForm.shelfId, condition: copyForm.condition })
-    },
+    mutationFn: () => copiesApi.create({ bookId: book.id, shelfId: copyForm.shelfId, condition: copyForm.condition }),
     onSuccess: () => {
       toast.success('Copy added')
       setAddCopy(false)
-      setCopyForm({ barcode: '', shelfSearch: '', shelfId: '', condition: 'GOOD' })
+      setCopyForm({ shelfSearch: '', shelfId: '', condition: 'GOOD' })
       refetchCopies()
     },
     onError: (err) => toast.error(extractError(err)),
@@ -306,6 +304,16 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <CopyStatusBadge status={copy.status} />
                       <Badge label={copy.condition} variant="gray" />
+                      <PrintButton type="copy" code={copy.barcode} />
+                      {copy.status !== 'ON_LOAN' && (
+                        <button
+                          onClick={() => { if (confirm('Delete this copy?')) deleteCopy.mutate(copy.id) }}
+                          className="rounded-lg p-1.5 text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+                          title="Delete copy"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-1.5">
@@ -326,9 +334,6 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
                             Retire
                           </Button>
                         )}
-                        <Button size="sm" variant="danger" onClick={() => { if (confirm('Delete this copy?')) deleteCopy.mutate(copy.id) }}>
-                          Delete
-                        </Button>
                       </>
                     )}
                   </div>
@@ -338,11 +343,6 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
               {/* Add copy */}
               {addCopy ? (
                 <div className="space-y-3 rounded-lg border border-dashed border-gray-300 p-4 dark:border-gray-600">
-                  <div>
-                    <Input label="Barcode" value={copyForm.barcode} onChange={(e) => setCopyForm({ ...copyForm, barcode: e.target.value })} placeholder="Leave empty to auto-generate" />
-                    <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">Leave blank to auto-generate a barcode</p>
-                  </div>
-
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Shelf</label>
                     {copyForm.shelfId ? (

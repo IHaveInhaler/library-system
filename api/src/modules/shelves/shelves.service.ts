@@ -110,12 +110,25 @@ export async function deleteShelf(id: string) {
   if ((shelf._count as any).bookCopies > 0) {
     throw new BadRequestError('Cannot delete shelf with assigned book copies')
   }
+  try {
+    const { createBackup } = await import('../backups/backups.service')
+    createBackup('pre-delete', `Before deleting shelf ${shelf.code}`)
+  } catch (err) {
+    console.error('[Backup] Pre-delete backup failed:', err)
+  }
   return prisma.shelf.delete({ where: { id } })
 }
 
 export async function migratePosition(fromPosition: string, toPosition: string) {
   if (!fromPosition || !toPosition) throw new BadRequestError('Both fromPosition and toPosition are required')
   if (fromPosition === toPosition) throw new BadRequestError('Positions must be different')
+
+  try {
+    const { createBackup } = await import('../backups/backups.service')
+    createBackup('pre-delete', `Before migrating position ${fromPosition} → ${toPosition}`)
+  } catch (err) {
+    console.error('[Backup] Pre-migrate backup failed:', err)
+  }
 
   // Find all shelves with the old position
   const shelves = await prisma.shelf.findMany({

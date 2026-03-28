@@ -29,6 +29,12 @@ export type SettingKey =
   | 'images.avatarMaxSizeMB'
   | 'images.libraryMaxSizeMB'
   | 'shelf.positions'
+  | 'print.method'
+  | 'print.zpl.host'
+  | 'print.zpl.port'
+  | 'print.zpl.labelWidth'
+  | 'print.zpl.labelHeight'
+  | 'print.ipp.printerUrl'
 
 export type SettingsResponse = {
   settings: Record<SettingKey, string>

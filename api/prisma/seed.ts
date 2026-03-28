@@ -68,12 +68,19 @@ async function main() {
     }),
   ])
 
-  // Shelves
+  // Shelves — generate labels first (async)
+  const [label1, label2, label3, label4] = await Promise.all([
+    generateShelfLabel('CEN', 'L'),
+    generateShelfLabel('CEN', 'M'),
+    generateShelfLabel('CEN', 'R'),
+    generateShelfLabel('WST', 'L'),
+  ])
+
   const [shelf1, shelf2, shelf3, shelf4] = await Promise.all([
     prisma.shelf.create({
       data: {
         code: 'FIC-01',
-        label: generateShelfLabel('CEN', 'L'),
+        label: label1,
         position: 'L',
         genre: 'FICTION',
         location: 'Ground floor, north wing, rows 1–5',
@@ -83,7 +90,7 @@ async function main() {
     prisma.shelf.create({
       data: {
         code: 'SCI-01',
-        label: generateShelfLabel('CEN', 'M'),
+        label: label2,
         position: 'M',
         genre: 'SCIENCE',
         location: 'First floor, east wing, rows 1–3',
@@ -93,7 +100,7 @@ async function main() {
     prisma.shelf.create({
       data: {
         code: 'TECH-01',
-        label: generateShelfLabel('CEN', 'R'),
+        label: label3,
         position: 'R',
         genre: 'TECHNOLOGY',
         location: 'First floor, east wing, rows 4–6',
@@ -103,7 +110,7 @@ async function main() {
     prisma.shelf.create({
       data: {
         code: 'FIC-01',
-        label: generateShelfLabel('WST', 'L'),
+        label: label4,
         position: 'L',
         genre: 'FICTION',
         location: 'Ground floor, main hall',

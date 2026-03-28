@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useQueries } from '@tanstack/react-query'
-import { Users2, Users, ClipboardList, Settings, IdCard } from 'lucide-react'
+import { Users2, Users, ClipboardList, Settings, IdCard, Database } from 'lucide-react'
 import { usersApi } from '../../api/users'
 import { librariesApi } from '../../api/libraries'
 import { shelvesApi } from '../../api/shelves'
@@ -15,6 +15,7 @@ const accessControl = [
 const systemConfig = [
   { icon: Settings, label: 'Settings', description: 'SMTP, branding, registration, 2FA, barcodes', href: '/admin/settings' },
   { icon: ClipboardList, label: 'Audit Log', description: 'Track actions taken by users across the system', href: '/admin/audit' },
+  { icon: Database, label: 'Backups', description: 'Database backups — create, restore, download', href: '/admin/backups' },
 ]
 
 export default function AdminPage() {

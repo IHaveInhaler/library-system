@@ -7,7 +7,10 @@ import { shelvesApi } from '../../api/shelves'
 import { librariesApi } from '../../api/libraries'
 import { categoriesApi } from '../../api/categories'
 import { booksApi } from '../../api/books'
+import { copiesApi } from '../../api/copies'
 import { settingsApi } from '../../api/settings'
+import { PrintButton } from './BarcodesPage'
+import { CopyStatusBadge } from '../../components/ui/Badge'
 import { PageSpinner } from '../../components/ui/Spinner'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Pagination } from '../../components/ui/Pagination'
@@ -223,7 +226,7 @@ function CreateShelfModal({ open, onClose }: { open: boolean; onClose: () => voi
 function EditShelfDrawer({ shelf, onClose }: { shelf: Shelf; onClose: () => void }) {
   const qc = useQueryClient()
   const positions = usePositions()
-  const [tab, setTab] = useState<'details' | 'books'>('details')
+  const [tab, setTab] = useState<'details' | 'books' | 'copies'>('details')
   const [form, setForm] = useState({
     code: shelf.code, position: shelf.position, genre: shelf.genre,
     location: shelf.location ?? '', capacity: String(shelf.capacity),
@@ -235,6 +238,12 @@ function EditShelfDrawer({ shelf, onClose }: { shelf: Shelf; onClose: () => void
     queryKey: ['books', 'shelf', shelf.id],
     queryFn: () => booksApi.list({ shelfId: shelf.id, limit: 50 }),
     enabled: tab === 'books',
+  })
+
+  const { data: copiesData } = useQuery({
+    queryKey: ['copies', 'shelf', shelf.id],
+    queryFn: () => copiesApi.list({ shelfId: shelf.id, limit: 100 }),
+    enabled: tab === 'copies',
   })
 
   const update = useMutation({
@@ -249,7 +258,7 @@ function EditShelfDrawer({ shelf, onClose }: { shelf: Shelf; onClose: () => void
     onError: (err) => toast.error(extractError(err)),
   })
 
-  const tabs = ['details', 'books'] as const
+  const tabs = ['details', 'books', 'copies'] as const
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -346,11 +355,43 @@ function EditShelfDrawer({ shelf, onClose }: { shelf: Shelf; onClose: () => void
                           <BookOpen className="h-4 w-4 text-gray-400" />
                         </div>
                       )}
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-900 line-clamp-1 dark:text-white">{book.title}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{book.author}</p>
                       </div>
+                      {(book as any)._count?.copies != null && (
+                        <span className="flex-shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                          {(book as any)._count.copies} {(book as any)._count.copies === 1 ? 'copy' : 'copies'}
+                        </span>
+                      )}
                     </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === 'copies' && (
+            <div className="space-y-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">All copies on this shelf.</p>
+              {!copiesData ? <PageSpinner /> : copiesData.data.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-gray-200 py-8 text-center dark:border-gray-700">
+                  <Layers className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No copies on this shelf.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {copiesData.data.map((copy: any) => (
+                    <div key={copy.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                      <div className="min-w-0">
+                        <p className="font-mono text-sm font-medium text-gray-900 dark:text-white">{copy.barcode}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{copy.book?.title}</p>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <CopyStatusBadge status={copy.status} />
+                        <PrintButton type="copy" code={copy.barcode} libraryId={shelf.library.id} />
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}

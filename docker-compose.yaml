@@ -14,7 +14,8 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
     volumes:
-      - api_data:/app/data
+      - ./data/api_data:/app/data
+      - ./data/db_backups:/app/data/backups
     ports:
       - "3000:3000"
     healthcheck:
@@ -33,6 +34,3 @@ services:
     depends_on:
       api:
         condition: service_healthy
-
-volumes:
-  api_data:

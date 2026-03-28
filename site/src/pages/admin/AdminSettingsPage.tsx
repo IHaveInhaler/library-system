@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users, Globe, IdCard, Palette, ShieldCheck, Barcode, Image as ImageIcon } from 'lucide-react'
+import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users, Globe, IdCard, Palette, ShieldCheck, Barcode, Printer, Image as ImageIcon, Search } from 'lucide-react'
 import { settingsApi, type SettingKey } from '../../api/settings'
 import { groupsApi } from '../../api/groups'
 import { setupApi } from '../../api/setup'
@@ -693,12 +693,12 @@ function BarcodeSettings() {
   const qc = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
   const [shelfFormat, setShelfFormat] = useState('{PREFIX}-{POSITION}{DIGITS}{CHECK}')
-  const [copyFormat, setCopyFormat] = useState('{PREFIX}-{ISBN}-{SEQ}')
+  const [copyFormat, setCopyFormat] = useState('{ISBN}-{DIGITS}-{CHECK}')
 
   useEffect(() => {
     if (data) {
       setShelfFormat(data.settings['barcode.shelfFormat'] || '{PREFIX}-{POSITION}{DIGITS}{CHECK}')
-      setCopyFormat(data.settings['barcode.copyFormat'] || '{PREFIX}-{ISBN}-{SEQ}')
+      setCopyFormat(data.settings['barcode.copyFormat'] || '{ISBN}-{DIGITS}-{CHECK}')
     }
   }, [data])
 
@@ -731,9 +731,109 @@ function BarcodeSettings() {
         <div>
           <Input label="Book copy barcode format" value={copyFormat} onChange={(e) => setCopyFormat(e.target.value)} />
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-            Variables: <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{PREFIX}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{ISBN}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{SEQ}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{RANDOM}'}</code>
+            Variables: <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{ISBN}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{DIGITS}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{CHECK}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{PREFIX}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{SEQ}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{RANDOM}'}</code>
           </p>
         </div>
+        <div className="flex justify-end">
+          <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Printing Settings Section ─────────────────────────────────────────────
+
+function PrintingSettings() {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const [method, setMethod] = useState('browser')
+  const [zplHost, setZplHost] = useState('')
+  const [zplPort, setZplPort] = useState('9100')
+  const [zplWidth, setZplWidth] = useState('50')
+  const [zplHeight, setZplHeight] = useState('25')
+  const [ippUrl, setIppUrl] = useState('')
+
+  useEffect(() => {
+    if (data) {
+      setMethod(data.settings['print.method'] || 'browser')
+      setZplHost(data.settings['print.zpl.host'] || '')
+      setZplPort(data.settings['print.zpl.port'] || '9100')
+      setZplWidth(data.settings['print.zpl.labelWidth'] || '50')
+      setZplHeight(data.settings['print.zpl.labelHeight'] || '25')
+      setIppUrl(data.settings['print.ipp.printerUrl'] || '')
+    }
+  }, [data])
+
+  const save = useMutation({
+    mutationFn: () => settingsApi.update({
+      'print.method': method,
+      'print.zpl.host': zplHost,
+      'print.zpl.port': zplPort,
+      'print.zpl.labelWidth': zplWidth,
+      'print.zpl.labelHeight': zplHeight,
+      'print.ipp.printerUrl': ippUrl,
+    }),
+    onSuccess: (res) => { toast.success('Printing settings saved'); qc.setQueryData(['settings'], res) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  if (isLoading) return <div className="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/40">
+          <Printer className="h-4 w-4 text-green-600 dark:text-green-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-gray-900 dark:text-white">Printing</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Configure how barcode labels are printed.</p>
+        </div>
+      </div>
+      <div className="space-y-4 p-6">
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Print Method</label>
+          <select value={method} onChange={(e) => setMethod(e.target.value)}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+            <option value="browser">Browser Print Dialog</option>
+            <option value="zpl">ZPL (Zebra Thermal Printer)</option>
+            <option value="ipp">IPP (Network Printer)</option>
+          </select>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+            {method === 'browser' && 'Uses the browser\'s built-in print dialog. Works with any printer.'}
+            {method === 'zpl' && 'Sends ZPL commands directly to a Zebra thermal label printer over the network.'}
+            {method === 'ipp' && 'Sends print jobs to a network printer using the Internet Printing Protocol.'}
+          </p>
+        </div>
+
+        {method === 'zpl' && (
+          <div className="space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+            <p className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">ZPL Printer Settings</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Printer IP / Hostname" placeholder="e.g. 192.168.1.50" value={zplHost} onChange={(e) => setZplHost(e.target.value)} />
+              <Input label="Port" placeholder="9100" value={zplPort} onChange={(e) => setZplPort(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Label Width (mm)" placeholder="50" value={zplWidth} onChange={(e) => setZplWidth(e.target.value)} />
+              <Input label="Label Height (mm)" placeholder="25" value={zplHeight} onChange={(e) => setZplHeight(e.target.value)} />
+            </div>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              Standard library label: 50 x 25 mm. The printer must be network-accessible from the server.
+            </p>
+          </div>
+        )}
+
+        {method === 'ipp' && (
+          <div className="space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+            <p className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">IPP Printer Settings</p>
+            <Input label="Printer URL" placeholder="e.g. http://192.168.1.50:631/ipp/print" value={ippUrl} onChange={(e) => setIppUrl(e.target.value)} />
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              The IPP URL of your network printer. Usually <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">http://printer-ip:631/ipp/print</code>
+            </p>
+          </div>
+        )}
+
         <div className="flex justify-end">
           <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
         </div>
@@ -989,14 +1089,36 @@ function DeveloperSection() {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
+
+const SETTINGS_SECTIONS = [
+  { key: 'general', keywords: ['general', 'app', 'base url', 'proxy'], component: GeneralSettings },
+  { key: 'smtp', keywords: ['smtp', 'email', 'mail', 'host', 'port'], component: SmtpSettings },
+  { key: 'membership', keywords: ['membership', 'calendar', 'months'], component: MembershipSettings },
+  { key: 'whitelabel', keywords: ['brand', 'white label', 'whitelabel', 'logo', 'color', 'favicon', 'app name'], component: WhiteLabelSettings },
+  { key: 'registration', keywords: ['registration', 'signup', 'sign up', 'domain', 'token', 'approval', 'email confirmation'], component: RegistrationSettings },
+  { key: '2fa', keywords: ['2fa', 'two factor', 'mfa', 'security key', 'authenticator', 'passkey'], component: TwoFactorSettings },
+  { key: 'barcodes', keywords: ['barcode', 'shelf format', 'copy format', 'isbn', 'prefix'], component: BarcodeSettings },
+  { key: 'printing', keywords: ['print', 'printer', 'zpl', 'zebra', 'ipp', 'thermal', 'label'], component: PrintingSettings },
+  { key: 'images', keywords: ['image', 'upload', 'avatar', 'size', 'file type'], component: ImageUploadSettings },
+  { key: 'developer', keywords: ['developer', 'dev mode', 'debug'], component: DeveloperSection },
+  { key: 'reset', keywords: ['factory reset', 'reset', 'wipe', 'delete'], component: FactoryResetSection },
+]
+
 export default function AdminSettingsPage() {
+  const [search, setSearch] = useState('')
+
+  const q = search.toLowerCase().trim()
+  const filtered = q
+    ? SETTINGS_SECTIONS.filter((s) => s.keywords.some((kw) => kw.includes(q)))
+    : SETTINGS_SECTIONS
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <Link to="/admin" className="mb-6 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
         <ArrowLeft className="h-4 w-4" /> Admin
       </Link>
 
-      <div className="mb-8 flex items-center gap-3">
+      <div className="mb-6 flex items-center gap-3">
         <div className="rounded-lg bg-gray-100 p-2.5 dark:bg-gray-700">
           <Settings className="h-5 w-5 text-gray-600 dark:text-gray-400" />
         </div>
@@ -1006,17 +1128,23 @@ export default function AdminSettingsPage() {
         </div>
       </div>
 
+      <div className="relative mb-8">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search settings…"
+          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+        />
+      </div>
+
       <div className="space-y-8">
-        <GeneralSettings />
-        <SmtpSettings />
-        <MembershipSettings />
-        <WhiteLabelSettings />
-        <RegistrationSettings />
-        <TwoFactorSettings />
-        <BarcodeSettings />
-        <ImageUploadSettings />
-        <DeveloperSection />
-        <FactoryResetSection />
+        {filtered.map(({ key, component: Component }) => (
+          <Component key={key} />
+        ))}
+        {filtered.length === 0 && (
+          <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">No settings match "{search}"</p>
+        )}
       </div>
     </div>
   )

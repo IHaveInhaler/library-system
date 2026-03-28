@@ -7,11 +7,13 @@ import {
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server'
 import QRCode from 'qrcode'
+import bcrypt from 'bcryptjs'
 import { prisma } from '../../lib/prisma'
 import { authenticate } from '../../middleware/authenticate'
 import { BadRequestError, NotFoundError } from '../../errors'
+import { logAction } from '../../lib/audit'
 import { getSetting } from '../../lib/settings'
-import { signAccessToken, signRefreshToken } from '../../lib/jwt'
+import { signAccessToken, signRefreshToken, verify2FAChallenge } from '../../lib/jwt'
 const router = Router()
 
 // ── TOTP Setup ──────────────────────────────────────────────────────────────
@@ -45,15 +47,34 @@ router.post('/totp/verify', authenticate, async (req: Request, res: Response, ne
     if (!isValid) throw new BadRequestError('Invalid code')
 
     await prisma.user.update({ where: { id: user.id }, data: { totpVerified: true } })
+    logAction({
+      actorId: req.user!.id,
+      actorName: req.user!.email,
+      action: 'TOTP_ENABLED',
+      targetType: 'User',
+      targetId: user.id,
+      targetName: user.email,
+    })
     res.json({ message: 'TOTP verified and enabled.' })
   } catch (err) { next(err) }
 })
 
 router.delete('/totp', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const { passwordHash } = await prisma.user.findUniqueOrThrow({ where: { id: req.user!.id }, select: { passwordHash: true } })
+    const valid = await bcrypt.compare(req.body.password, passwordHash)
+    if (!valid) { res.status(403).json({ code: 'FORBIDDEN', message: 'Invalid password' }); return }
+
     await prisma.user.update({
       where: { id: req.user!.id },
       data: { totpSecret: null, totpVerified: false },
+    })
+    logAction({
+      actorId: req.user!.id,
+      actorName: req.user!.email,
+      action: 'TOTP_REMOVED',
+      targetType: 'User',
+      targetId: req.user!.id,
     })
     res.json({ message: 'TOTP removed.' })
   } catch (err) { next(err) }
@@ -73,9 +94,21 @@ router.get('/security-keys', authenticate, async (req: Request, res: Response, n
 
 router.delete('/security-key/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const { passwordHash } = await prisma.user.findUniqueOrThrow({ where: { id: req.user!.id }, select: { passwordHash: true } })
+    const valid = await bcrypt.compare(req.body.password, passwordHash)
+    if (!valid) { res.status(403).json({ code: 'FORBIDDEN', message: 'Invalid password' }); return }
+
     const key = await prisma.securityKey.findUnique({ where: { id: req.params.id as string } })
     if (!key || key.userId !== req.user!.id) throw new NotFoundError('Security key')
     await prisma.securityKey.delete({ where: { id: key.id } })
+    logAction({
+      actorId: req.user!.id,
+      actorName: req.user!.email,
+      action: 'SECURITY_KEY_REMOVED',
+      targetType: 'SecurityKey',
+      targetId: key.id,
+      targetName: key.name,
+    })
     res.json({ message: 'Security key removed.' })
   } catch (err) { next(err) }
 })
@@ -152,6 +185,13 @@ router.post('/security-key/register-verify', authenticate, async (req: Request, 
       },
     })
 
+    logAction({
+      actorId: req.user!.id,
+      actorName: req.user!.email,
+      action: 'SECURITY_KEY_REGISTERED',
+      targetType: 'SecurityKey',
+      targetName: req.body.name || 'Security Key',
+    })
     res.json({ message: 'Security key registered.' })
   } catch (err) { next(err) }
 })
@@ -160,8 +200,16 @@ router.post('/security-key/register-verify', authenticate, async (req: Request, 
 
 router.post('/security-key/auth-options', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { userId } = req.body
-    if (!userId) throw new BadRequestError('userId required')
+    const { challengeToken } = req.body
+    if (!challengeToken) throw new BadRequestError('challengeToken required')
+
+    let userId: string
+    try {
+      const payload = verify2FAChallenge(challengeToken)
+      userId = payload.sub
+    } catch {
+      throw new BadRequestError('Invalid or expired challenge token')
+    }
 
     const keys = await prisma.securityKey.findMany({
       where: { userId },
@@ -191,7 +239,7 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
 
     // Check if 2FA is required for this user's role
     const requiredRolesJson = await getSetting('2fa.requiredRoles')
-    const devMode = (await getSetting('dev.enabled')) === 'true'
+    const devMode = process.env.NODE_ENV === 'development'
     const securityKeysOnly = (await getSetting('2fa.securityKeysOnly')) === 'true'
     let required = false
     if (!devMode && requiredRolesJson) {
@@ -212,8 +260,16 @@ router.get('/status', authenticate, async (req: Request, res: Response, next: Ne
 
 router.post('/challenge', async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { userId, method, code } = req.body
-    if (!userId || !method) throw new BadRequestError('userId and method are required')
+    const { challengeToken, method, code } = req.body
+    if (!challengeToken || !method) throw new BadRequestError('challengeToken and method are required')
+
+    let userId: string
+    try {
+      const payload = verify2FAChallenge(challengeToken)
+      userId = payload.sub
+    } catch {
+      throw new BadRequestError('Invalid or expired challenge token')
+    }
 
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) throw new BadRequestError('Invalid')

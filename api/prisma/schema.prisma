@@ -108,6 +108,14 @@ model Library {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Per-library printer configuration (falls back to global settings if empty)
+  printMethod      String? // 'browser' | 'zpl' | 'ipp'
+  printZplHost     String?
+  printZplPort     String?
+  printZplLabelWidth  String?
+  printZplLabelHeight String?
+  printIppUrl      String?
+
   shelves     Shelf[]
   memberships LibraryMembership[]
 }

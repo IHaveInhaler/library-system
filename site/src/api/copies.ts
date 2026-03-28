@@ -7,7 +7,7 @@ export const copiesApi = {
 
   get: (id: string) => api.get<BookCopy>(`/copies/${id}`).then((r) => r.data),
 
-  create: (data: { barcode: string; bookId: string; shelfId: string; condition?: string }) =>
+  create: (data: { bookId: string; shelfId: string; condition?: string }) =>
     api.post<BookCopy>('/copies', data).then((r) => r.data),
 
   update: (id: string, data: { barcode?: string; condition?: string; shelfId?: string }) =>

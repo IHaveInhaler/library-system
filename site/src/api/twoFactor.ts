@@ -40,10 +40,10 @@ export const twoFactorApi = {
     api.post('/auth/2fa/security-key/register-verify', { attestation, name }).then((r) => r.data),
 
   // Security key authentication (during login)
-  securityKeyAuthOptions: (userId: string) =>
-    api.post('/auth/2fa/security-key/auth-options', { userId }).then((r) => r.data),
+  securityKeyAuthOptions: (challengeToken: string) =>
+    api.post('/auth/2fa/security-key/auth-options', { challengeToken }).then((r) => r.data),
 
   // Challenge (during login)
-  challenge: (data: { userId: string; method: string; code?: string; assertion?: any }) =>
+  challenge: (data: { challengeToken: string; method: string; code?: string; assertion?: any }) =>
     api.post<AuthResponse>('/auth/2fa/challenge', data).then((r) => r.data),
 }

@@ -14,7 +14,7 @@ import * as controller from './bookCopies.controller'
 const router = Router()
 
 router.get('/', authenticate, authorizePermission('MANAGE_COPIES'), validate(copyQuerySchema, 'query'), controller.list)
-router.get('/:id', controller.getById)
+router.get('/:id', authenticate, controller.getById)
 router.post('/', authenticate, authorizePermission('MANAGE_COPIES'), validate(createBookCopySchema), controller.create)
 router.patch('/:id', authenticate, authorizePermission('MANAGE_COPIES'), validate(updateBookCopySchema), controller.update)
 router.patch('/:id/status', authenticate, authorizePermission('MANAGE_COPIES'), validate(setCopyStatusSchema), controller.setStatus)

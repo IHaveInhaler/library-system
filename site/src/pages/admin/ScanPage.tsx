@@ -1,8 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Scan, BookOpen, Layers, ArrowLeft, ExternalLink, ClipboardList, RotateCcw } from 'lucide-react'
-import { api } from '../../api/client'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Scan, BookOpen, Layers, ArrowLeft, ExternalLink, ClipboardList, RotateCcw, Plus, Search, Printer } from 'lucide-react'
+import { api, extractError } from '../../api/client'
+import { booksApi } from '../../api/books'
+import { copiesApi } from '../../api/copies'
 import { Button } from '../../components/ui/Button'
 import { Badge, CopyStatusBadge } from '../../components/ui/Badge'
 
@@ -127,6 +130,36 @@ export default function ScanPage() {
 // ── Shelf Result ────────────────────────────────────────────────────────────
 
 function ShelfResult({ shelf }: { shelf: any }) {
+  const qc = useQueryClient()
+  const [addingCopy, setAddingCopy] = useState(false)
+  const [bookSearch, setBookSearch] = useState('')
+  const [createdCopy, setCreatedCopy] = useState<any>(null)
+
+  const { data: bookResults } = useQuery({
+    queryKey: ['books', 'search', bookSearch],
+    queryFn: () => booksApi.list({ search: bookSearch, limit: 8 }),
+    enabled: addingCopy && bookSearch.length >= 2,
+  })
+
+  const createCopy = useMutation({
+    mutationFn: (bookId: string) => copiesApi.create({ bookId, shelfId: shelf.id }),
+    onSuccess: (copy) => {
+      toast.success('Copy added to shelf')
+      setCreatedCopy(copy)
+      setAddingCopy(false)
+      setBookSearch('')
+      qc.invalidateQueries({ queryKey: ['scan'] })
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const printBarcode = (barcode: string) => {
+    const w = window.open('', '_blank', 'width=400,height=300')
+    if (!w) return
+    w.document.write(`<html><head><title>Print ${barcode}</title><style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:monospace}img{max-width:80%}p{margin-top:8px;font-size:14px}</style></head><body><img src="/api/barcodes/copy/${encodeURIComponent(barcode)}" /><p>${barcode}</p><script>setTimeout(()=>{window.print();window.close()},500)</script></body></html>`)
+    w.document.close()
+  }
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
       <div className="mb-4 flex items-center gap-3">
@@ -139,14 +172,79 @@ function ShelfResult({ shelf }: { shelf: any }) {
         </div>
         <Badge label="Shelf" variant="purple" />
       </div>
+
       <div className="flex gap-2">
-        <Link to={`/manage/shelves?search=${shelf.code}`}>
+        <Link to={`/manage/shelves?search=${shelf.code}&library=${shelf.library.id}`}>
           <Button size="sm" variant="secondary"><Layers className="h-4 w-4" /> View Shelf</Button>
         </Link>
         <Link to={`/libraries/${shelf.library.id}`}>
           <Button size="sm" variant="secondary"><ExternalLink className="h-4 w-4" /> Library</Button>
         </Link>
+        <Button size="sm" onClick={() => { setAddingCopy(true); setCreatedCopy(null) }}>
+          <Plus className="h-4 w-4" /> Add Copy
+        </Button>
       </div>
+
+      {/* Add copy flow */}
+      {addingCopy && (
+        <div className="mt-4 space-y-3 rounded-lg border border-dashed border-gray-300 p-4 dark:border-gray-600">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Search for a book to add to this shelf</p>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              value={bookSearch}
+              onChange={(e) => setBookSearch(e.target.value)}
+              placeholder="Search by title, author, ISBN…"
+              autoFocus
+              className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+            />
+          </div>
+          {bookResults && bookResults.data.length > 0 && (
+            <ul className="max-h-60 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
+              {bookResults.data.map((book) => (
+                <li key={book.id}>
+                  <button
+                    onClick={() => createCopy.mutate(book.id)}
+                    disabled={createCopy.isPending}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                  >
+                    {book.coverUrl ? (
+                      <img src={book.coverUrl} alt="" className="h-10 w-7 flex-shrink-0 rounded object-cover" />
+                    ) : (
+                      <div className="flex h-10 w-7 flex-shrink-0 items-center justify-center rounded bg-gray-100 dark:bg-gray-700">
+                        <BookOpen className="h-3 w-3 text-gray-400" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 line-clamp-1 dark:text-white">{book.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{book.author} · {book.isbn}</p>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {bookSearch.length >= 2 && bookResults && bookResults.data.length === 0 && (
+            <p className="text-sm text-gray-400 dark:text-gray-500">No books found</p>
+          )}
+          <Button size="sm" variant="secondary" onClick={() => { setAddingCopy(false); setBookSearch('') }}>Cancel</Button>
+        </div>
+      )}
+
+      {/* Print barcode prompt after creating copy */}
+      {createdCopy && (
+        <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-700/50 dark:bg-green-900/20">
+          <p className="text-sm font-medium text-green-800 dark:text-green-300">
+            Copy created — barcode: <span className="font-mono">{createdCopy.barcode}</span>
+          </p>
+          <div className="mt-3 flex gap-2">
+            <Button size="sm" onClick={() => printBarcode(createdCopy.barcode)}>
+              <Printer className="h-4 w-4" /> Print Barcode
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => setCreatedCopy(null)}>Dismiss</Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

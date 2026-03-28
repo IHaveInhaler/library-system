@@ -37,7 +37,7 @@ export default function LoginPage() {
   const [showDevAccounts, setShowDevAccounts] = useState(false)
 
   // 2FA state
-  const [pendingUserId, setPendingUserId] = useState<string | null>(null)
+  const [pendingChallengeToken, setPendingChallengeToken] = useState<string | null>(null)
   const [availableMethods, setAvailableMethods] = useState<string[]>([])
   const [showTotpInput, setShowTotpInput] = useState(false)
   const [_showKeyPrompt, setShowKeyPrompt] = useState(false)
@@ -62,13 +62,13 @@ export default function LoginPage() {
 
   const handleLoginResult = (data: any) => {
     if (data.requires2FA) {
-      setPendingUserId(data.userId)
+      setPendingChallengeToken(data.challengeToken)
       setAvailableMethods(data.methods || [])
       // If only one method, go straight to it
       if (data.methods?.length === 1 && data.methods[0] === 'totp') {
         setShowTotpInput(true)
       } else if (data.methods?.length === 1 && data.methods[0] === 'securityKey') {
-        handleSecurityKeyAuth(data.userId)
+        handleSecurityKeyAuth(data.challengeToken)
       } else {
         // Show method picker
         setShowTotpInput(true) // Default to TOTP picker, with option to switch
@@ -79,14 +79,14 @@ export default function LoginPage() {
     return false
   }
 
-  const handleSecurityKeyAuth = async (userId: string) => {
+  const handleSecurityKeyAuth = async (challengeToken: string) => {
     setKeyLoading(true)
     setShowKeyPrompt(true)
     try {
       const { startAuthentication } = await import('@simplewebauthn/browser')
-      const options = await twoFactorApi.securityKeyAuthOptions(userId)
+      const options = await twoFactorApi.securityKeyAuthOptions(challengeToken)
       const assertion = await startAuthentication({ optionsJSON: options })
-      const result = await twoFactorApi.challenge({ userId, method: 'securityKey', assertion })
+      const result = await twoFactorApi.challenge({ challengeToken, method: 'securityKey', assertion })
       setAuth(result.user, result.accessToken, result.refreshToken)
       qc.setQueryData(['me'], result.user)
       navigate(from, { replace: true })
@@ -114,10 +114,10 @@ export default function LoginPage() {
   }
 
   const onTotpSubmit = async () => {
-    if (!pendingUserId || totpCode.length !== 6) return
+    if (!pendingChallengeToken || totpCode.length !== 6) return
     setTotpLoading(true)
     try {
-      const result = await twoFactorApi.challenge({ userId: pendingUserId, method: 'totp', code: totpCode })
+      const result = await twoFactorApi.challenge({ challengeToken: pendingChallengeToken, method: 'totp', code: totpCode })
       setAuth(result.user, result.accessToken, result.refreshToken)
       qc.setQueryData(['me'], result.user)
       navigate(from, { replace: true })
@@ -131,7 +131,7 @@ export default function LoginPage() {
   }
 
   const resetTotpState = () => {
-    setPendingUserId(null)
+    setPendingChallengeToken(null)
     setAvailableMethods([])
     setShowTotpInput(false)
     setShowKeyPrompt(false)
@@ -199,7 +199,7 @@ export default function LoginPage() {
             {availableMethods.includes('securityKey') && (
               <button
                 type="button"
-                onClick={() => { setShowTotpInput(false); handleSecurityKeyAuth(pendingUserId!) }}
+                onClick={() => { setShowTotpInput(false); handleSecurityKeyAuth(pendingChallengeToken!) }}
                 disabled={keyLoading}
                 className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
               >

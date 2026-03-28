@@ -88,6 +88,7 @@ npm run dev   # http://localhost:5173
 | `/admin/permissions` | Admin — Permissions | Role permission matrix; toggle which actions each role (MEMBER, LIBRARIAN) can perform; ADMIN permissions are always locked on |
 | `/admin/groups` | Admin — Groups | Create/manage groups (roles); expand each group to toggle its permissions inline; delete custom groups |
 | `/admin/membership-types` | Admin — Membership Types | Create/manage membership types (Permanent, Monthly, Yearly, Fixed, Staff, custom). Edit label, duration, staff flag. Reorder. Built-in types cannot be deleted. |
+| `/admin/backups` | Admin — Backups | List all backups, create manual backup, download, restore (requires security key or console code), delete. Shows reason/note/size/date. |
 
 ### Admin Settings Sections (`/admin/settings`)
 

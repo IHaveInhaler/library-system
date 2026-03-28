@@ -100,6 +100,16 @@ export async function deleteLibrary(id: string, opts?: { action?: 'move' | 'dele
   const library = await prisma.library.findUniqueOrThrow({ where: { id } })
   const action = opts?.action ?? 'deactivate'
 
+  // Auto-backup before hard delete
+  if (action === 'delete' || action === 'move') {
+    try {
+      const { createBackup } = await import('../backups/backups.service')
+      createBackup('pre-delete', `Before deleting ${library.name}`)
+    } catch (err) {
+      console.error('[Backup] Pre-delete backup failed:', err)
+    }
+  }
+
   if (action === 'move') {
     if (!opts?.targetLibraryId) throw new BadRequestError('targetLibraryId is required for move action')
     if (opts.targetLibraryId === id) throw new BadRequestError('Cannot move shelves to the same library')

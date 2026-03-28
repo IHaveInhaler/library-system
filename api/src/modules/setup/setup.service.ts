@@ -93,6 +93,7 @@ export async function verifyCode(code: string) {
   activeCode = null
 
   const setupToken = jwt.sign({ purpose: 'setup' }, SETUP_TOKEN_SECRET, {
+    algorithm: 'HS256',
     expiresIn: SETUP_TOKEN_EXPIRY,
   } as jwt.SignOptions)
 
@@ -104,7 +105,7 @@ const consumedTokens = new Set<string>()
 
 export function verifySetupToken(token: string): void {
   try {
-    const payload = jwt.verify(token, SETUP_TOKEN_SECRET) as { purpose?: string }
+    const payload = jwt.verify(token, SETUP_TOKEN_SECRET, { algorithms: ['HS256'] }) as { purpose?: string }
     if (payload.purpose !== 'setup') throw new Error()
     if (consumedTokens.has(token)) throw new Error('Token already used')
   } catch {
@@ -196,6 +197,10 @@ export async function setDevMode(enabled: boolean) {
 }
 
 export async function devSeed() {
+  if (process.env.NODE_ENV !== 'development') {
+    throw new ForbiddenError('Dev seed is only available in development mode')
+  }
+
   // Seed dev accounts, libraries, shelves, books
   const [adminHash, librarianHash, memberHash] = await Promise.all([
     bcrypt.hash('Admin1234!', 12),
@@ -314,6 +319,14 @@ export async function devSeed() {
 }
 
 export async function factoryReset() {
+  // Auto-backup before factory reset
+  try {
+    const { createBackup } = await import('../backups/backups.service')
+    createBackup('pre-delete', 'Before factory reset')
+  } catch (err) {
+    console.error('[Backup] Pre-reset backup failed:', err)
+  }
+
   // Delete all data in dependency order
   await prisma.$transaction([
     prisma.auditLog.deleteMany(),

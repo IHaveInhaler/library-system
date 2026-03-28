@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Library, Plus, X, Pencil, Trash2, Upload, ImageIcon } from 'lucide-react'
+import { Library, Plus, X, Pencil, Trash2, Upload, ImageIcon, Printer } from 'lucide-react'
 import { librariesApi } from '../../api/libraries'
 import { uploadsApi } from '../../api/uploads'
 import { PageSpinner } from '../../components/ui/Spinner'
@@ -158,6 +158,12 @@ function EditLibraryDrawer({ library, onClose }: { library: LibraryType; onClose
     email: library.email ?? '',
     isPrivate: library.isPrivate,
     isActive: library.isActive,
+    printMethod: (library as any).printMethod ?? '',
+    printZplHost: (library as any).printZplHost ?? '',
+    printZplPort: (library as any).printZplPort ?? '9100',
+    printZplLabelWidth: (library as any).printZplLabelWidth ?? '50',
+    printZplLabelHeight: (library as any).printZplLabelHeight ?? '25',
+    printIppUrl: (library as any).printIppUrl ?? '',
   })
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -168,6 +174,12 @@ function EditLibraryDrawer({ library, onClose }: { library: LibraryType; onClose
       email: form.email || undefined,
       isPrivate: form.isPrivate,
       isActive: form.isActive,
+      printMethod: form.printMethod || null,
+      printZplHost: form.printZplHost || null,
+      printZplPort: form.printZplPort || null,
+      printZplLabelWidth: form.printZplLabelWidth || null,
+      printZplLabelHeight: form.printZplLabelHeight || null,
+      printIppUrl: form.printIppUrl || null,
     }),
     onSuccess: () => {
       toast.success('Library updated')
@@ -302,6 +314,43 @@ function EditLibraryDrawer({ library, onClose }: { library: LibraryType; onClose
                 <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} className="rounded border-gray-300 dark:border-gray-600" />
                 Active
               </label>
+            </div>
+
+            {/* Printer Settings */}
+            <div className="border-t border-gray-100 pt-4 dark:border-gray-700">
+              <div className="mb-3 flex items-center gap-2">
+                <Printer className="h-4 w-4 text-gray-400" />
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Printer</p>
+              </div>
+              <div className="space-y-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Print Method</label>
+                  <select value={form.printMethod} onChange={(e) => setForm({ ...form, printMethod: e.target.value })}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                    <option value="">Use global default</option>
+                    <option value="browser">Browser Print Dialog</option>
+                    <option value="zpl">ZPL (Zebra Thermal)</option>
+                    <option value="ipp">IPP (Network Printer)</option>
+                  </select>
+                </div>
+
+                {form.printMethod === 'zpl' && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input label="Printer IP" placeholder="192.168.1.50" value={form.printZplHost} onChange={(e) => setForm({ ...form, printZplHost: e.target.value })} />
+                      <Input label="Port" placeholder="9100" value={form.printZplPort} onChange={(e) => setForm({ ...form, printZplPort: e.target.value })} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input label="Label W (mm)" placeholder="50" value={form.printZplLabelWidth} onChange={(e) => setForm({ ...form, printZplLabelWidth: e.target.value })} />
+                      <Input label="Label H (mm)" placeholder="25" value={form.printZplLabelHeight} onChange={(e) => setForm({ ...form, printZplLabelHeight: e.target.value })} />
+                    </div>
+                  </>
+                )}
+
+                {form.printMethod === 'ipp' && (
+                  <Input label="Printer URL" placeholder="http://192.168.1.50:631/ipp/print" value={form.printIppUrl} onChange={(e) => setForm({ ...form, printIppUrl: e.target.value })} />
+                )}
+              </div>
             </div>
 
             <div className="flex gap-2 pt-2">

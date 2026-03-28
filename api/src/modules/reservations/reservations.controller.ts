@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
+import { logAction } from '../../lib/audit'
 import * as reservationsService from './reservations.service'
 import { hasPermission } from '../../lib/permissions'
 import { ForbiddenError } from '../../errors'
@@ -30,6 +31,15 @@ export async function create(req: Request, res: Response, next: NextFunction): P
       targetUserId = req.body.userId
     }
     const reservation = await reservationsService.createReservation(req.body, targetUserId)
+    logAction({
+      actorId: req.user!.id,
+      actorName: req.user!.email,
+      action: 'RESERVATION_CREATED',
+      targetType: 'Reservation',
+      targetId: reservation.id,
+      targetName: reservation.book.title,
+      metadata: { userId: reservation.userId, bookId: reservation.bookId },
+    })
     res.status(201).json(reservation)
   } catch (err) {
     next(err)
@@ -43,6 +53,14 @@ export async function cancel(req: Request, res: Response, next: NextFunction): P
       req.user!.id,
       req.user!.role
     )
+    logAction({
+      actorId: req.user!.id,
+      actorName: req.user!.email,
+      action: 'RESERVATION_CANCELLED',
+      targetType: 'Reservation',
+      targetId: reservation.id,
+      targetName: reservation.book.title,
+    })
     res.json(reservation)
   } catch (err) {
     next(err)
@@ -52,6 +70,15 @@ export async function cancel(req: Request, res: Response, next: NextFunction): P
 export async function fulfill(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const reservation = await reservationsService.fulfillReservation(req.params.id as string, req.body)
+    logAction({
+      actorId: req.user!.id,
+      actorName: req.user!.email,
+      action: 'RESERVATION_FULFILLED',
+      targetType: 'Reservation',
+      targetId: reservation.id,
+      targetName: reservation.book.title,
+      metadata: { bookCopyId: req.body.bookCopyId },
+    })
     res.json(reservation)
   } catch (err) {
     next(err)
