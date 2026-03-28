@@ -361,7 +361,7 @@ function SecurityKeysSection() {
           <Key className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
           <p className="text-sm text-gray-500 dark:text-gray-400">No security keys registered</p>
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Add a YubiKey or other FIDO2 security key</p>
-          <a href="https://www.yubico.com/resources/why-the-yubikey/" target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs text-blue-500 hover:underline dark:text-blue-400">
+          <a href="https://1password.com/blog/hardware-security-keys-explained" target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs text-blue-500 hover:underline dark:text-blue-400">
             Learn about security keys →
           </a>
         </div>
