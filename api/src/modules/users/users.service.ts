@@ -127,6 +127,12 @@ export async function updateUser(id: string, input: UpdateUserInput, callerId?: 
 
 export async function setUserActive(id: string, isActive: boolean, reason?: string) {
   await getUser(id)
+
+  // Revoke all sessions when deactivating to prevent continued access with existing JWTs
+  if (!isActive) {
+    await prisma.refreshToken.updateMany({ where: { userId: id }, data: { revokedAt: new Date() } })
+  }
+
   return prisma.user.update({
     where: { id },
     data: {

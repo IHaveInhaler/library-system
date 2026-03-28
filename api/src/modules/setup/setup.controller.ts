@@ -35,6 +35,7 @@ export async function createAdmin(req: Request, res: Response, next: NextFunctio
       return
     }
     setupService.verifySetupToken(token)
+    setupService.consumeSetupToken(token) // Single-use: prevent reuse
 
     const result = await setupService.createAdmin(req.body)
 
@@ -86,6 +87,7 @@ export async function devSeed(req: Request, res: Response, next: NextFunction): 
       return
     }
     setupService.verifySetupToken(token)
+    setupService.consumeSetupToken(token) // Single-use
 
     const result = await setupService.devSeed()
     res.json(result)

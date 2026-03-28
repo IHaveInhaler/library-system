@@ -40,9 +40,6 @@ export async function getLoan(id: string) {
 export async function createLoan(input: CreateLoanInput) {
   const copy = await prisma.bookCopy.findUnique({ where: { id: input.bookCopyId } })
   if (!copy) throw new NotFoundError('Book copy')
-  if (copy.status !== 'AVAILABLE') {
-    throw new BadRequestError(`Book copy is not available (current status: ${copy.status})`)
-  }
 
   const user = await prisma.user.findUnique({ where: { id: input.userId } })
   if (!user || !user.isActive) throw new NotFoundError('User')
@@ -52,6 +49,12 @@ export async function createLoan(input: CreateLoanInput) {
   }
 
   return prisma.$transaction(async (tx) => {
+    // Re-check status inside transaction to prevent race conditions
+    const freshCopy = await tx.bookCopy.findUnique({ where: { id: input.bookCopyId } })
+    if (!freshCopy || freshCopy.status !== 'AVAILABLE') {
+      throw new BadRequestError(`Book copy is not available (current status: ${freshCopy?.status ?? 'unknown'})`)
+    }
+
     const loan = await tx.loan.create({
       data: {
         userId: input.userId,

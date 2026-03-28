@@ -99,13 +99,21 @@ export async function verifyCode(code: string) {
   return { setupToken }
 }
 
+// Track consumed setup tokens to prevent reuse
+const consumedTokens = new Set<string>()
+
 export function verifySetupToken(token: string): void {
   try {
     const payload = jwt.verify(token, SETUP_TOKEN_SECRET) as { purpose?: string }
     if (payload.purpose !== 'setup') throw new Error()
+    if (consumedTokens.has(token)) throw new Error('Token already used')
   } catch {
     throw new UnauthorizedError('Invalid or expired setup token')
   }
+}
+
+export function consumeSetupToken(token: string): void {
+  consumedTokens.add(token)
 }
 
 export async function createAdmin(input: {
