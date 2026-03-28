@@ -1,6 +1,7 @@
 import express from 'express'
 import path from 'path'
 import cors from 'cors'
+import rateLimit from 'express-rate-limit'
 import { env } from './config/env'
 import { errorHandler } from './middleware/errorHandler'
 import { authenticate } from './middleware/authenticate'
@@ -34,14 +35,45 @@ export function createApp() {
     app.set('trust proxy', true)
   }
 
-  app.use(cors({ origin: env.CORS_ORIGIN }))
-  app.use(express.json())
+  // CORS — validate origin isn't wildcard in production
+  const corsOrigin = env.CORS_ORIGIN
+  if (env.NODE_ENV === 'production' && corsOrigin === '*') {
+    console.warn('WARNING: CORS_ORIGIN is set to wildcard (*) in production. This is insecure.')
+  }
+  app.use(cors({ origin: corsOrigin }))
+
+  // Body size limits to prevent DoS
+  app.use(express.json({ limit: '1mb' }))
+  app.use(express.urlencoded({ extended: false, limit: '1mb' }))
+
+  // Global rate limit — 100 requests per minute per IP
+  app.use(rateLimit({
+    windowMs: 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { code: 'RATE_LIMITED', message: 'Too many requests, please try again later' },
+  }))
 
   // Serve uploaded files
   const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'data', 'uploads')
   app.use('/uploads', express.static(uploadDir))
 
   app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))
+
+  // Strict rate limits on auth endpoints — 10 attempts per 15 minutes per IP
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { code: 'RATE_LIMITED', message: 'Too many authentication attempts, please try again later' },
+  })
+  app.use('/api/auth/login', authLimiter)
+  app.use('/api/auth/register', authLimiter)
+  app.use('/api/auth/forgot-password', authLimiter)
+  app.use('/api/auth/verify-email', authLimiter)
+  app.use('/api/auth/2fa/challenge', authLimiter)
 
   app.use('/api/auth', authRouter)
   app.use('/api/users', authenticate, usersRouter)
@@ -61,6 +93,8 @@ export function createApp() {
   app.use('/api/settings', authenticate, settingsRouter)
   app.use('/api', uploadRoutes)
   app.use('/api/auth/2fa', twoFactorRouter)
+  // Rate limit setup code verification — 5 attempts per 15 minutes
+  app.use('/api/setup/verify-code', rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: { code: 'RATE_LIMITED', message: 'Too many attempts' } }))
   app.use('/api/setup', setupRouter)
 
   app.use(errorHandler)

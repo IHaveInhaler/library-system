@@ -44,6 +44,11 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
     })
     res.json(result)
   } catch (err) {
+    logAction({
+      action: 'LOGIN_FAILED',
+      targetType: 'Auth',
+      metadata: { email: req.body?.email, ip: req.ip },
+    })
     next(err)
   }
 }

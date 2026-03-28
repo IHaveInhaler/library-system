@@ -62,7 +62,14 @@ export async function validateMagicBytes(filepath: string, mimetype: string): Pr
   }
 
   try {
-    const fd = fs.openSync(filepath, 'r')
+    // Resolve symlinks and verify the file is within UPLOAD_DIR
+    const realPath = fs.realpathSync(filepath)
+    if (!realPath.startsWith(fs.realpathSync(UPLOAD_DIR))) {
+      safeDelete(filepath)
+      return false
+    }
+
+    const fd = fs.openSync(realPath, 'r')
     const buffer = Buffer.alloc(8)
     fs.readSync(fd, buffer, 0, 8, 0)
     fs.closeSync(fd)

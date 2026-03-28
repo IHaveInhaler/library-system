@@ -40,6 +40,14 @@ async function buildSettingsResponse() {
     if (envVar && process.env[envVar]) settings[key] = process.env[envVar]!
   }
 
+  // Mask sensitive values — never expose passwords to the frontend
+  const MASKED_KEYS = ['smtp.pass']
+  for (const key of MASKED_KEYS) {
+    if (settings[key] && settings[key].length > 0) {
+      settings[key] = '••••••••'
+    }
+  }
+
   return { settings, locked }
 }
 

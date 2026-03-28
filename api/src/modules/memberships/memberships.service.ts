@@ -11,6 +11,7 @@ export async function listMemberships(libraryId: string) {
       type: true,
     },
     orderBy: { createdAt: 'desc' },
+    take: 500, // Safety limit to prevent DoS on large libraries
   })
 }
 

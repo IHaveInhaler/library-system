@@ -79,7 +79,13 @@ export async function generateCode() {
 export async function verifyCode(code: string) {
   await guardSetup()
 
-  if (!activeCode || Date.now() > activeCode.expiresAt || activeCode.code !== code) {
+  if (!activeCode || Date.now() > activeCode.expiresAt) {
+    throw new UnauthorizedError('Invalid or expired setup code')
+  }
+  // Constant-time comparison to prevent timing attacks
+  const expected = Buffer.from(activeCode.code, 'utf8')
+  const received = Buffer.from(code.padEnd(expected.length), 'utf8')
+  if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
     throw new UnauthorizedError('Invalid or expired setup code')
   }
 

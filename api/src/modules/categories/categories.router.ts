@@ -35,8 +35,11 @@ router.patch('/:id', authenticate, authorizePermission('MANAGE_CATEGORIES'), asy
     const cat = await prisma.category.findUnique({ where: { id: req.params.id as string } })
     if (!cat) throw new NotFoundError('Category')
     const { label, color, name } = req.body
-    // If renaming, update all books and shelves that reference the old name
+    // If renaming, validate uniqueness first
     if (name && name !== cat.name) {
+      if (!/^[A-Z][A-Z0-9_]*$/.test(name)) throw new BadRequestError('Name must be uppercase letters, digits, underscores')
+      const duplicate = await prisma.category.findUnique({ where: { name } })
+      if (duplicate) throw new ConflictError(`Category "${name}" already exists`)
       await prisma.$transaction([
         prisma.book.updateMany({ where: { genre: cat.name }, data: { genre: name } }),
         prisma.shelf.updateMany({ where: { genre: cat.name }, data: { genre: name } }),
@@ -72,7 +75,8 @@ router.delete('/:id', authenticate, authorizePermission('MANAGE_CATEGORIES'), as
 router.post('/reorder', authenticate, authorizePermission('MANAGE_CATEGORIES'), async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { ids } = req.body
-    if (!Array.isArray(ids)) throw new BadRequestError('ids array required')
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 200) throw new BadRequestError('ids must be an array of 1-200 items')
+    if (!ids.every((id: unknown) => typeof id === 'string' && id.length > 0)) throw new BadRequestError('All ids must be non-empty strings')
     await Promise.all(ids.map((id: string, i: number) => prisma.category.update({ where: { id }, data: { order: i + 1 } })))
     res.json({ message: 'Reordered' })
   } catch (err) { next(err) }

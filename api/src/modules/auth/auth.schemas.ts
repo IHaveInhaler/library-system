@@ -10,7 +10,7 @@ export const registerSchema = z.object({
 
 export const verifyEmailSchema = z.object({
   email: z.string().email(),
-  code: z.string().length(6),
+  code: z.string().length(6).regex(/^\d{6}$/, 'Code must be 6 digits'),
 })
 
 export const loginSchema = z.object({
@@ -27,7 +27,7 @@ export const forgotPasswordSchema = z.object({
 })
 
 export const resetPasswordTokenSchema = z.object({
-  token: z.string().min(1),
+  token: z.string().regex(/^[a-f0-9]{64}$/, 'Invalid token format'),
   password: z.string().min(8, 'Password must be at least 8 characters'),
 })
 
