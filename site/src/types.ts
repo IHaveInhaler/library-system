@@ -99,7 +99,7 @@ export interface BookCopy {
   bookId: string
   book: { id: string; title: string; author: string; isbn: string; genre: Genre }
   shelfId: string
-  shelf: { id: string; code: string; label: string; library: { id: string; name: string } }
+  shelf: { id: string; code: string; label: string; location?: string; library: { id: string; name: string } }
   acquiredAt: string
   createdAt: string
   updatedAt: string

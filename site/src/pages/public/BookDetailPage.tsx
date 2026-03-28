@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, BookOpen, Bookmark, ChevronDown, User } from 'lucide-react'
+import { ArrowLeft, BookOpen, Bookmark, ChevronDown, MapPin, User } from 'lucide-react'
 import { booksApi } from '../../api/books'
 import { loansApi } from '../../api/loans'
 import { reservationsApi } from '../../api/reservations'
@@ -204,6 +204,20 @@ function CopyRow({
 
       {expanded && (
         <div className="border-t border-gray-100 px-4 py-4 dark:border-gray-700">
+          {/* Shelf location */}
+          <div className="mb-4 flex items-start gap-3 rounded-lg bg-blue-50 px-3 py-2.5 dark:bg-blue-900/20">
+            <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500 dark:text-blue-400" />
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                {copy.shelf.library.name} — Shelf {copy.shelf.code}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Label: <span className="font-mono">{copy.shelf.label}</span>
+                {copy.shelf.location && <> · {copy.shelf.location}</>}
+              </p>
+            </div>
+          </div>
+
           <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Loan History</p>
           {!loans ? (
             <p className="text-xs text-gray-400 dark:text-gray-500">Loading...</p>
