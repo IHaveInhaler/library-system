@@ -260,25 +260,35 @@ export async function getMe(userId: string) {
   }
 
   // Check if 2FA setup is required for this user
+  const fullUser = await prisma.user.findUnique({ where: { id: userId }, select: { totpVerified: true, pending2FA: true } })
+  const keyCount = await prisma.securityKey.count({ where: { userId } })
+  const has2FA = fullUser?.totpVerified || keyCount > 0
+
   let requires2FASetup = false
   const devMode = (await getSetting('dev.enabled')) === 'true'
-  if (!devMode) {
+
+  // Admin-forced pending 2FA (clears automatically once 2FA is set up)
+  if (fullUser?.pending2FA && !has2FA && !devMode) {
+    requires2FASetup = true
+  }
+
+  // Role-based 2FA requirement
+  if (!requires2FASetup && !devMode) {
     const requiredRolesJson = await getSetting('2fa.requiredRoles')
     if (requiredRolesJson) {
       try {
         const requiredRoles = JSON.parse(requiredRolesJson)
-        if (requiredRoles.includes(user.role)) {
-          const hasTOTP = await prisma.user.findUnique({ where: { id: userId }, select: { totpVerified: true } })
-          const keyCount = await prisma.securityKey.count({ where: { userId } })
+        if (requiredRoles.includes(user.role) && !has2FA) {
           const securityKeysOnly = (await getSetting('2fa.securityKeysOnly')) === 'true'
-          if (securityKeysOnly) {
-            requires2FASetup = keyCount === 0
-          } else {
-            requires2FASetup = !hasTOTP?.totpVerified && keyCount === 0
-          }
+          requires2FASetup = securityKeysOnly ? keyCount === 0 : !fullUser?.totpVerified && keyCount === 0
         }
       } catch { /* ignore */ }
     }
+  }
+
+  // Auto-clear pending2FA once 2FA is set up
+  if (fullUser?.pending2FA && has2FA) {
+    await prisma.user.update({ where: { id: userId }, data: { pending2FA: false } })
   }
 
   return { ...user, staffLibraryIds, requires2FASetup }

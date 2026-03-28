@@ -620,12 +620,16 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                     variant="secondary"
                     disabled={isSelf}
                     title={isSelf ? 'Cannot require 2FA on your own account this way' : undefined}
-                    onClick={() => {
-                      if (confirm(`This will deactivate ${user.firstName}'s account until they set up two-factor authentication. Continue?`)) {
-                        toggleActive.mutate('Pending 2FA setup — account will reactivate once TOTP or a security key is configured')
+                    onClick={async () => {
+                      if (confirm(`${user.firstName} will be forced to set up 2FA on their next login. They can still log in but will only be able to access the security setup page. Continue?`)) {
+                        try {
+                          await usersApi.require2FA(user.id)
+                          toast.success('2FA requirement set')
+                        } catch (err) {
+                          toast.error(extractError(err))
+                        }
                       }
                     }}
-                    loading={toggleActive.isPending}
                   >
                     Require 2FA
                   </Button>

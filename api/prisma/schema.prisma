@@ -19,6 +19,7 @@ model User {
   emailVerified       Boolean  @default(true)
   deactivationReason  String?
   activationReason    String?
+  pending2FA          Boolean  @default(false)
   totpSecret          String?  // encrypted TOTP secret
   totpVerified        Boolean  @default(false)
   createdAt           DateTime @default(now())

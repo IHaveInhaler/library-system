@@ -21,6 +21,9 @@ export const usersApi = {
   resetPassword: (id: string) =>
     api.post<{ message: string }>(`/users/${id}/reset-password`).then((r) => r.data),
 
+  require2FA: (id: string) =>
+    api.post<{ message: string }>(`/users/${id}/require-2fa`).then((r) => r.data),
+
   remove: (id: string) => api.delete(`/users/${id}`),
 
   loans: (id: string) => api.get<Loan[]>(`/users/${id}/loans`).then((r) => r.data),

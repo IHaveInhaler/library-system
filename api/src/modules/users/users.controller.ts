@@ -117,6 +117,26 @@ export async function remove(req: Request, res: Response, next: NextFunction): P
   }
 }
 
+export async function require2FA(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { prisma } = await import('../../lib/prisma')
+    const id = req.params.id as string
+    const target = await usersService.getUser(id)
+    await prisma.user.update({ where: { id }, data: { pending2FA: true } })
+    logAction({
+      actorId: req.user?.id,
+      actorName: actorName(req),
+      action: 'USER_2FA_REQUIRED',
+      targetType: 'User',
+      targetId: target.id,
+      targetName: `${target.firstName} ${target.lastName}`,
+    })
+    res.json({ message: '2FA requirement set. User will be forced to set up 2FA on next login.' })
+  } catch (err) {
+    next(err)
+  }
+}
+
 export async function loans(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await usersService.getUserLoans(

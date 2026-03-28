@@ -16,6 +16,7 @@ router.patch('/:id', authorizePermission('MANAGE_USERS'), validate(updateUserSch
 router.patch('/:id/active', authorizePermission('MANAGE_USERS'), controller.setActive)
 router.post('/:id/revoke-sessions', authorizePermission('MANAGE_USERS'), controller.revokeSessions)
 router.post('/:id/reset-password', authorizePermission('RESET_USER_PASSWORD'), controller.resetPassword)
+router.post('/:id/require-2fa', authorizePermission('MANAGE_USERS'), controller.require2FA)
 router.delete('/:id', authorize('ADMIN'), controller.remove)
 // loans + reservations: self-access always allowed; viewing others requires VIEW_USERS (enforced in service)
 router.get('/:id/loans', controller.loans)
