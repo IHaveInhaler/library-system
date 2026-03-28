@@ -39,6 +39,7 @@ import CategoriesPage from './pages/admin/CategoriesPage'
 import ScanPage from './pages/admin/ScanPage'
 import BarcodesPage from './pages/admin/BarcodesPage'
 import BackupsPage from './pages/admin/BackupsPage'
+import FilesPage from './pages/admin/FilesPage'
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -126,6 +127,7 @@ function AppRoutes() {
               <Route path="/admin/audit" element={<ProtectedRoute roles={['ADMIN']}><AuditLogPage /></ProtectedRoute>} />
               <Route path="/admin/settings" element={<ProtectedRoute roles={['ADMIN']}><AdminSettingsPage /></ProtectedRoute>} />
               <Route path="/admin/backups" element={<ProtectedRoute roles={['ADMIN']}><BackupsPage /></ProtectedRoute>} />
+              <Route path="/admin/files" element={<ProtectedRoute roles={['ADMIN']}><FilesPage /></ProtectedRoute>} />
 
               {/* Legacy redirects */}
               <Route path="/admin/books" element={<Navigate to="/manage/books" replace />} />

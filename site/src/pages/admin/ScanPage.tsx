@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Scan, BookOpen, Layers, ArrowLeft, ExternalLink, ClipboardList, RotateCcw, Plus, Search, Printer } from 'lucide-react'
+import { Scan, BookOpen, Layers, ArrowLeft, ExternalLink, ClipboardList, RotateCcw, Plus, Search, Printer, Trash2, AlertTriangle, Ban } from 'lucide-react'
 import { api, extractError } from '../../api/client'
 import { booksApi } from '../../api/books'
 import { copiesApi } from '../../api/copies'
@@ -252,6 +252,20 @@ function ShelfResult({ shelf }: { shelf: any }) {
 // ── Copy Result ─────────────────────────────────────────────────────────────
 
 function CopyResult({ copy }: { copy: any }) {
+  const qc = useQueryClient()
+
+  const setStatus = useMutation({
+    mutationFn: ({ status }: { status: string }) => copiesApi.setStatus(copy.id, status as any),
+    onSuccess: () => { toast.success('Status updated'); qc.invalidateQueries({ queryKey: ['scan'] }) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const deleteCopy = useMutation({
+    mutationFn: () => copiesApi.remove(copy.id),
+    onSuccess: () => { toast.success('Copy deleted'); qc.invalidateQueries({ queryKey: ['scan'] }) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
       <div className="mb-4 flex items-center gap-3">
@@ -278,19 +292,38 @@ function CopyResult({ copy }: { copy: any }) {
         </div>
       )}
 
-      <div className="flex gap-2">
-        <Link to={`/books/${copy.book.id}`}>
+      <div className="flex flex-wrap gap-2">
+        <Link to={`/manage/books?search=${encodeURIComponent(copy.book.title)}`}>
           <Button size="sm" variant="secondary"><BookOpen className="h-4 w-4" /> View Book</Button>
         </Link>
         {copy.status === 'AVAILABLE' && (
-          <Link to={`/manage/loans`}>
+          <Link to="/manage/loans">
             <Button size="sm"><ClipboardList className="h-4 w-4" /> Issue Loan</Button>
           </Link>
         )}
         {copy.activeLoan && (
-          <Link to={`/manage/loans`}>
+          <Link to="/manage/loans">
             <Button size="sm" variant="secondary"><RotateCcw className="h-4 w-4" /> Return</Button>
           </Link>
+        )}
+        {copy.status !== 'ON_LOAN' && copy.status !== 'DAMAGED' && (
+          <Button size="sm" variant="secondary" onClick={() => setStatus.mutate({ status: 'DAMAGED' })} loading={setStatus.isPending}>
+            <AlertTriangle className="h-4 w-4" /> Mark Damaged
+          </Button>
+        )}
+        {copy.status !== 'ON_LOAN' && copy.status !== 'RETIRED' && (
+          <Button size="sm" variant="secondary" onClick={() => setStatus.mutate({ status: 'RETIRED' })} loading={setStatus.isPending}>
+            <Ban className="h-4 w-4" /> Retire
+          </Button>
+        )}
+        {copy.status !== 'ON_LOAN' && (
+          <button
+            onClick={() => { if (confirm('Delete this copy?')) deleteCopy.mutate() }}
+            className="rounded-lg p-2 text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+            title="Delete copy"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         )}
       </div>
     </div>

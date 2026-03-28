@@ -115,4 +115,41 @@ export function getUploadUrl(filename: string): string {
   return `/uploads/${path.basename(filename)}`
 }
 
+/**
+ * Download an image from a URL, validate it, and save it to the uploads directory.
+ * Returns the local URL path (e.g. /uploads/abc123.jpg) or null on failure.
+ */
+export async function downloadImage(imageUrl: string): Promise<string | null> {
+  try {
+    const response = await fetch(imageUrl, {
+      headers: { 'User-Agent': 'LibraryPortal/1.0' },
+      signal: AbortSignal.timeout(10000),
+    })
+    if (!response.ok) return null
+
+    const contentType = response.headers.get('content-type')?.split(';')[0]?.trim() || ''
+    if (!ALLOWED_MIMES[contentType]) return null
+
+    const buffer = Buffer.from(await response.arrayBuffer())
+    if (buffer.length === 0 || buffer.length > 5 * 1024 * 1024) return null
+
+    // Validate magic bytes
+    const expectedHeaders = ALLOWED_MIMES[contentType]
+    const valid = expectedHeaders.some((header) =>
+      buffer.subarray(0, header.length).equals(header)
+    )
+    if (!valid) return null
+
+    const name = crypto.randomBytes(20).toString('hex')
+    const ext = MIME_EXTENSIONS[contentType] || ''
+    const filename = name + ext
+    const filepath = path.join(UPLOAD_DIR, filename)
+    fs.writeFileSync(filepath, buffer)
+
+    return `/uploads/${filename}`
+  } catch {
+    return null
+  }
+}
+
 export { UPLOAD_DIR }

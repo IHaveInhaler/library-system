@@ -151,6 +151,17 @@ export async function revokeUserSessions(id: string) {
 
 export async function deleteUser(id: string) {
   await getUser(id)
+
+  // Delete avatar file if exists
+  const full = await prisma.user.findUnique({ where: { id }, select: { avatarUrl: true } })
+  if (full?.avatarUrl) {
+    try {
+      const { deleteFile } = await import('../../lib/upload')
+      const filename = full.avatarUrl.split('/').pop()
+      if (filename) deleteFile(filename)
+    } catch { /* ignore */ }
+  }
+
   await prisma.refreshToken.deleteMany({ where: { userId: id } })
   return prisma.user.delete({ where: { id } })
 }

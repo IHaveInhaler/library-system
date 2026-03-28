@@ -1,4 +1,5 @@
 import { Genre } from '../types'
+import { downloadImage } from './upload'
 
 interface OpenLibraryData {
   title?: string
@@ -89,6 +90,14 @@ export async function fetchByIsbn(isbn: string): Promise<IsbnMetadata | null> {
       ? data.description
       : data.description?.value
 
+  // Download cover image locally instead of linking to external URL
+  const externalCoverUrl = data.cover?.large ?? data.cover?.medium
+  let coverUrl: string | undefined
+  if (externalCoverUrl) {
+    const localUrl = await downloadImage(externalCoverUrl)
+    if (localUrl) coverUrl = localUrl
+  }
+
   return {
     isbn: cleanIsbn,
     title: data.title ?? 'Unknown Title',
@@ -97,7 +106,7 @@ export async function fetchByIsbn(isbn: string): Promise<IsbnMetadata | null> {
     publishedYear: parseYear(data.publish_date),
     genre: inferGenre(data.subjects),
     description,
-    coverUrl: data.cover?.medium ?? data.cover?.large,
+    coverUrl,
     totalPages: data.number_of_pages,
     language: 'en',
   }
