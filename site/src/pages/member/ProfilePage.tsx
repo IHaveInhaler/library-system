@@ -106,18 +106,52 @@ function ProfileSection() {
           </div>
 
           {/* Info */}
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {user.firstName} {user.lastName}
-              </h3>
-              <Badge label={user.role} variant={roleBadgeVariant[user.role] ?? 'gray'} />
+          <div className="flex-1 space-y-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {user.firstName} {user.lastName}
+                </h3>
+                <Badge label={user.role} variant={roleBadgeVariant[user.role] ?? 'gray'} />
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{user.email}</p>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">{user.email}</p>
+            <ChangePasswordButton />
           </div>
         </div>
       </div>
     </div>
+  )
+}
+
+// ── Change Password Button ───────────────────────────────────────────────────
+
+function ChangePasswordButton() {
+  const { user } = useAuth()
+  const [loading, setLoading] = useState(false)
+  const [sent, setSent] = useState(false)
+
+  const handleClick = async () => {
+    if (!user) return
+    setLoading(true)
+    try {
+      const { authApi } = await import('../../api/auth')
+      await authApi.forgotPassword(user.email)
+      setSent(true)
+      toast.success('Password reset link sent to your email')
+    } catch (err) {
+      toast.error(extractError(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return sent ? (
+    <p className="text-xs text-green-600 dark:text-green-400">Reset link sent — check your email or server console.</p>
+  ) : (
+    <Button variant="secondary" size="sm" onClick={handleClick} loading={loading}>
+      Change Password
+    </Button>
   )
 }
 
