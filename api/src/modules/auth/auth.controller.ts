@@ -31,6 +31,10 @@ export async function verifyEmail(req: Request, res: Response, next: NextFunctio
 export async function login(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await authService.login(req.body)
+    if ('requires2FA' in result) {
+      res.json(result)
+      return
+    }
     logAction({
       actorId: result.user.id,
       actorName: result.user.email,

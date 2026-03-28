@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, BookOpen, Bookmark, ChevronDown, MapPin, Share2, User } from 'lucide-react'
+import { ArrowLeft, BookOpen, Bookmark, ChevronDown, FileText, MapPin, Share2, User } from 'lucide-react'
 import { booksApi } from '../../api/books'
 import { loansApi } from '../../api/loans'
 import { reservationsApi } from '../../api/reservations'
@@ -13,6 +13,7 @@ import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 import { useAuth, useRole } from '../../hooks/useAuth'
 import { extractError } from '../../api/client'
+import { bookNotesApi, encryptNote, decryptNote } from '../../api/bookNotes'
 import type { BookCopy, Loan } from '../../types'
 
 export default function BookDetailPage() {
@@ -148,6 +149,9 @@ export default function BookDetailPage() {
         </div>
       )}
 
+      {/* Notes */}
+      {isMember && <NotesSection bookId={id!} />}
+
       {/* Loan modal */}
       {loanModal && (
         <IssueLoanModal
@@ -240,7 +244,7 @@ function CopyRow({
                   <div className="flex items-center gap-2">
                     <User className="h-3.5 w-3.5 text-gray-400" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {loan.user.firstName} {loan.user.lastName}
+                      {canManage ? `${loan.user.firstName} ${loan.user.lastName}` : 'Member'}
                     </span>
                   </div>
                   <div className="flex items-center gap-3">
@@ -252,6 +256,94 @@ function CopyRow({
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Notes Section (zero-knowledge encrypted) ────────────────────────────────
+
+function NotesSection({ bookId }: { bookId: string }) {
+  const { user } = useAuth()
+  const [content, setContent] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+
+  // Use a deterministic passphrase from user ID (client-side only)
+  const passphrase = user ? `${user.id}:book-notes-key` : ''
+
+  useEffect(() => {
+    if (!user || !expanded) return
+    setLoading(true)
+    bookNotesApi.get(bookId).then(async (note) => {
+      if (note?.encryptedContent) {
+        try {
+          const decrypted = await decryptNote(note.encryptedContent, note.iv, passphrase)
+          setContent(decrypted)
+        } catch {
+          setContent('[Could not decrypt note]')
+        }
+      } else {
+        setContent('')
+      }
+    }).catch(() => {}).finally(() => setLoading(false))
+  }, [bookId, user, expanded, passphrase])
+
+  const handleSave = async () => {
+    if (!content.trim()) {
+      // Delete empty note
+      await bookNotesApi.remove(bookId)
+      toast.success('Note removed')
+      return
+    }
+    setSaving(true)
+    try {
+      const encrypted = await encryptNote(content, passphrase)
+      await bookNotesApi.save(bookId, encrypted)
+      toast.success('Note saved')
+    } catch (err) {
+      toast.error(extractError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mt-10">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white"
+      >
+        <FileText className="h-5 w-5 text-gray-400" />
+        My Notes
+        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {expanded && (
+        <div className="mt-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <p className="mb-3 text-xs text-gray-400 dark:text-gray-500">
+            Your notes are encrypted client-side. Only you can read them.
+          </p>
+          {loading ? (
+            <p className="text-sm text-gray-400 dark:text-gray-500">Loading...</p>
+          ) : (
+            <>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Write your notes here (Markdown supported)..."
+                rows={6}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+              />
+              <div className="mt-2 flex justify-end">
+                <Button size="sm" onClick={handleSave} loading={saving}>
+                  Save Note
+                </Button>
+              </div>
+            </>
           )}
         </div>
       )}

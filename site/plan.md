@@ -95,6 +95,9 @@ npm run dev   # http://localhost:5173
 |---|---|
 | Email / SMTP | SMTP host, port, user, pass, from address. Env-lockable. |
 | Registration | Mode selector (open/domain/token/disabled), allowed domain input, token display (auto-generated), "require approval" toggle, "require email confirmation" toggle |
+| Memberships | Calendar month mode toggle (calendar vs flat days) |
+| White Label | App name, logo URL, primary color, favicon URL. Applied globally via CSS vars. |
+| Two-Factor Auth | Checklist of roles that require 2FA. Methods: TOTP, security key. Bypassed in dev mode. |
 | Developer Mode | Toggle dev mode on/off. Shows seeded account list when on + seeded. |
 | Factory Reset | Type "confirm" to wipe DB and restart setup wizard. |
 

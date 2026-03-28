@@ -13,11 +13,14 @@ model User {
   passwordHash String
   firstName    String
   lastName     String
+  avatarUrl           String?
   role                String   @default("MEMBER") // MEMBER | LIBRARIAN | ADMIN
   isActive            Boolean  @default(true)
   emailVerified       Boolean  @default(true)
   deactivationReason  String?
   activationReason    String?
+  totpSecret          String?  // encrypted TOTP secret
+  totpVerified        Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -28,6 +31,33 @@ model User {
   auditLogs          AuditLog[]
   passwordResetTokens PasswordResetToken[]
   emailVerifications  EmailVerification[]
+  securityKeys       SecurityKey[]
+  bookNotes          BookNote[]
+}
+
+model SecurityKey {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String   @unique
+  publicKey    String   // base64 encoded
+  counter      Int      @default(0)
+  name         String   // user-friendly name e.g. "YubiKey 5"
+  createdAt    DateTime @default(now())
+}
+
+model BookNote {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId       String
+  book         Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  encryptedContent String // client-side encrypted markdown
+  iv           String   // initialization vector for decryption
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, bookId])
 }
 
 model EmailVerification {
@@ -71,6 +101,7 @@ model Library {
   name        String
   labelPrefix String   @unique // 3-letter prefix used in shelf labels e.g. "CEN"
   email       String?  @unique
+  imageUrl    String?
   isActive    Boolean  @default(true)
   isPrivate   Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -148,6 +179,7 @@ model Book {
 
   copies       BookCopy[]
   reservations Reservation[]
+  notes        BookNote[]
 }
 
 model BookCopy {

@@ -20,6 +20,7 @@ export const PERMISSIONS: PermissionInfo[] = [
   { key: 'VIEW_ALL_LIBRARIES', label: 'View All Libraries', description: 'Bypass membership checks — see every library including private ones.', category: 'Libraries' },
   { key: 'CREATE_LIBRARY', label: 'Create Library', description: 'Create new libraries. Does not grant edit or delete on existing libraries.', category: 'Libraries' },
   { key: 'MANAGE_LIBRARIES', label: 'Manage Libraries', description: 'Edit and configure existing libraries (name, prefix, email, privacy). Requires Staff membership for the specific library.', category: 'Libraries' },
+  { key: 'MANAGE_LIBRARY_IMAGE', label: 'Manage Library Image', description: 'Upload and remove library images/banners.', category: 'Libraries' },
   { key: 'MANAGE_SHELVES', label: 'Manage Shelves', description: 'Create, edit, and delete shelves within libraries where the user has Staff access.', category: 'Libraries' },
   { key: 'MANAGE_MEMBERSHIPS', label: 'Manage Memberships', description: 'Grant, revoke, and edit library memberships for users.', category: 'Libraries' },
 

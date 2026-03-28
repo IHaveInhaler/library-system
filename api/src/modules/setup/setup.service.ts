@@ -295,6 +295,8 @@ export async function factoryReset() {
   // Delete all data in dependency order
   await prisma.$transaction([
     prisma.auditLog.deleteMany(),
+    prisma.bookNote.deleteMany(),
+    prisma.securityKey.deleteMany(),
     prisma.emailVerification.deleteMany(),
     prisma.passwordResetToken.deleteMany(),
     prisma.refreshToken.deleteMany(),

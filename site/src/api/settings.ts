@@ -14,6 +14,12 @@ export type SettingKey =
   | 'reg.requireApproval'
   | 'reg.requireEmailConfirmation'
   | 'membership.calendarMonths'
+  | 'brand.appName'
+  | 'brand.logoUrl'
+  | 'brand.primaryColor'
+  | 'brand.faviconUrl'
+  | '2fa.requiredRoles'
+  | '2fa.methods'
 
 export type SettingsResponse = {
   settings: Record<SettingKey, string>

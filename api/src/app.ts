@@ -1,4 +1,5 @@
 import express from 'express'
+import path from 'path'
 import cors from 'cors'
 import { env } from './config/env'
 import { errorHandler } from './middleware/errorHandler'
@@ -17,7 +18,10 @@ import groupsRouter from './modules/groups/groups.router'
 import auditRouter from './modules/audit/audit.router'
 import settingsRouter from './modules/settings/settings.router'
 import { getPublicSettings } from './modules/settings/settings.controller'
+import uploadRoutes from './lib/uploadRoutes'
 import membershipTypesRouter from './modules/membershipTypes/membershipTypes.router'
+import bookNotesRouter from './modules/bookNotes/bookNotes.router'
+import twoFactorRouter from './modules/twoFactor/twoFactor.router'
 import setupRouter from './modules/setup/setup.router'
 
 export function createApp() {
@@ -25,6 +29,10 @@ export function createApp() {
 
   app.use(cors({ origin: env.CORS_ORIGIN }))
   app.use(express.json())
+
+  // Serve uploaded files
+  const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'data', 'uploads')
+  app.use('/uploads', express.static(uploadDir))
 
   app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))
 
@@ -39,9 +47,12 @@ export function createApp() {
   app.use('/api/permissions', permissionsRouter)
   app.use('/api/groups', groupsRouter)
   app.use('/api/membership-types', membershipTypesRouter)
+  app.use('/api/books', authenticate, bookNotesRouter) // book notes routes (nested under /books/:bookId/notes)
   app.use('/api/audit', authenticate, auditRouter)
   app.get('/api/settings/public', getPublicSettings)
   app.use('/api/settings', authenticate, settingsRouter)
+  app.use('/api', uploadRoutes)
+  app.use('/api/auth/2fa', twoFactorRouter)
   app.use('/api/setup', setupRouter)
 
   app.use(errorHandler)

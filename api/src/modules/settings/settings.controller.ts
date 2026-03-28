@@ -16,6 +16,12 @@ const ALLOWED_KEYS = [
   'reg.requireApproval',
   'reg.requireEmailConfirmation',
   'membership.calendarMonths',
+  'brand.appName',
+  'brand.logoUrl',
+  'brand.primaryColor',
+  'brand.faviconUrl',
+  '2fa.requiredRoles',
+  '2fa.methods',
 ]
 
 async function buildSettingsResponse() {
@@ -38,7 +44,7 @@ async function buildSettingsResponse() {
 // Public endpoint — returns only registration-related settings (no auth required)
 export async function getPublicSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const PUBLIC_KEYS = ['reg.mode', 'reg.allowedDomain']
+    const PUBLIC_KEYS = ['reg.mode', 'reg.allowedDomain', 'brand.appName', 'brand.logoUrl', 'brand.primaryColor', 'brand.faviconUrl']
     const rows = await prisma.systemSetting.findMany({ where: { key: { in: PUBLIC_KEYS } } })
     const settings: Record<string, string> = {}
     for (const row of rows) settings[row.key] = row.value

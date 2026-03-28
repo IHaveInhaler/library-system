@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users, Globe, IdCard } from 'lucide-react'
+import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users, Globe, IdCard, Palette, ShieldCheck } from 'lucide-react'
 import { settingsApi, type SettingKey } from '../../api/settings'
+import { groupsApi } from '../../api/groups'
 import { setupApi } from '../../api/setup'
 import { useAuthStore } from '../../store/auth'
 import { Button } from '../../components/ui/Button'
@@ -421,6 +422,198 @@ function RegistrationSettings() {
   )
 }
 
+// ── White Label Section ───────────────────────────────────────────────────
+
+function WhiteLabelSettings() {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+
+  const [appName, setAppName] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [primaryColor, setPrimaryColor] = useState('#3b82f6')
+  const [faviconUrl, setFaviconUrl] = useState('')
+
+  useEffect(() => {
+    if (data) {
+      setAppName(data.settings['brand.appName'] || '')
+      setLogoUrl(data.settings['brand.logoUrl'] || '')
+      setPrimaryColor(data.settings['brand.primaryColor'] || '#3b82f6')
+      setFaviconUrl(data.settings['brand.faviconUrl'] || '')
+    }
+  }, [data])
+
+  const save = useMutation({
+    mutationFn: () => settingsApi.update({
+      'brand.appName': appName,
+      'brand.logoUrl': logoUrl,
+      'brand.primaryColor': primaryColor,
+      'brand.faviconUrl': faviconUrl,
+    }),
+    onSuccess: (res) => { toast.success('White label settings saved'); qc.setQueryData(['settings'], res) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  if (isLoading) return <div className="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/40">
+          <Palette className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-gray-900 dark:text-white">White Label</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Customize the look and feel of your portal.</p>
+        </div>
+      </div>
+
+      <div className="space-y-4 p-6">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">App name</label>
+          <input
+            value={appName}
+            onChange={(e) => setAppName(e.target.value)}
+            placeholder="Library Portal"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Logo URL</label>
+          <input
+            value={logoUrl}
+            onChange={(e) => setLogoUrl(e.target.value)}
+            placeholder="https://example.com/logo.png"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+          />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Primary color</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={primaryColor}
+              onChange={(e) => setPrimaryColor(e.target.value)}
+              className="h-10 w-14 cursor-pointer rounded-lg border border-gray-300 bg-white p-1 dark:border-gray-600 dark:bg-gray-700"
+            />
+            <input
+              value={primaryColor}
+              onChange={(e) => setPrimaryColor(e.target.value)}
+              placeholder="#3b82f6"
+              className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Favicon URL</label>
+          <input
+            value={faviconUrl}
+            onChange={(e) => setFaviconUrl(e.target.value)}
+            placeholder="https://example.com/favicon.ico"
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+          />
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Two-Factor Authentication Section ────────────────────────────────────
+
+function TwoFactorSettings() {
+  const qc = useQueryClient()
+  const { data: settingsData, isLoading: settingsLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const { data: groups, isLoading: groupsLoading } = useQuery({ queryKey: ['groups'], queryFn: groupsApi.list })
+
+  const [requiredRoles, setRequiredRoles] = useState<string[]>([])
+
+  useEffect(() => {
+    if (settingsData) {
+      try {
+        const parsed = JSON.parse(settingsData.settings['2fa.requiredRoles'] || '[]')
+        setRequiredRoles(Array.isArray(parsed) ? parsed : [])
+      } catch {
+        setRequiredRoles([])
+      }
+    }
+  }, [settingsData])
+
+  const toggleRole = (name: string) => {
+    setRequiredRoles((prev) =>
+      prev.includes(name) ? prev.filter((r) => r !== name) : [...prev, name]
+    )
+  }
+
+  const save = useMutation({
+    mutationFn: () => settingsApi.update({
+      '2fa.requiredRoles': JSON.stringify(requiredRoles),
+    }),
+    onSuccess: (res) => { toast.success('2FA settings saved'); qc.setQueryData(['settings'], res) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  if (settingsLoading || groupsLoading) return <div className="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/40">
+          <ShieldCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-gray-900 dark:text-white">Two-Factor Authentication</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Require 2FA for specific roles.</p>
+        </div>
+      </div>
+
+      <div className="space-y-4 p-6">
+        {groups && groups.length > 0 ? (
+          <div className="space-y-2">
+            {groups.map((group) => (
+              <label
+                key={group.id}
+                className="flex items-center gap-3 rounded-lg border border-gray-100 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50"
+              >
+                <input
+                  type="checkbox"
+                  checked={requiredRoles.includes(group.name)}
+                  onChange={() => toggleRole(group.name)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600"
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{group.name}</p>
+                  {group.description && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{group.description}</p>
+                  )}
+                </div>
+                {group.isBuiltIn && (
+                  <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 dark:bg-gray-700 dark:text-gray-400">built-in</span>
+                )}
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400">No groups found.</p>
+        )}
+
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-400">
+          When developer mode is enabled, 2FA requirements are bypassed.
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Factory Reset Section ──────────────────────────────────────────────────
 
 function FactoryResetSection() {
@@ -628,7 +821,9 @@ export default function AdminSettingsPage() {
         <GeneralSettings />
         <SmtpSettings />
         <MembershipSettings />
+        <WhiteLabelSettings />
         <RegistrationSettings />
+        <TwoFactorSettings />
         <DeveloperSection />
         <FactoryResetSection />
       </div>

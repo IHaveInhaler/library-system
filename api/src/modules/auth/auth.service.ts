@@ -116,6 +116,32 @@ export async function login(input: LoginInput) {
   const valid = await comparePassword(input.password, user.passwordHash)
   if (!valid) throw new UnauthorizedError('Invalid credentials')
 
+  // Check if 2FA is required
+  const has2FA = user.totpVerified || (await prisma.securityKey.count({ where: { userId: user.id } })) > 0
+  const devMode = (await getSetting('dev.enabled')) === 'true'
+
+  if (has2FA && !devMode) {
+    const methods: string[] = []
+    if (user.totpVerified) methods.push('totp')
+    const keyCount = await prisma.securityKey.count({ where: { userId: user.id } })
+    if (keyCount > 0) methods.push('securityKey')
+    return { userId: user.id, requires2FA: true, methods }
+  }
+
+  // Check if 2FA is required by role but not set up
+  if (!devMode) {
+    const requiredRolesJson = await getSetting('2fa.requiredRoles')
+    if (requiredRolesJson) {
+      try {
+        const requiredRoles = JSON.parse(requiredRolesJson)
+        if (requiredRoles.includes(user.role) && !has2FA) {
+          // Let them in but they'll need to set up 2FA
+          // The frontend will enforce setup
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
   const tokens = issueTokens(user.id, user.role)
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
 
@@ -123,7 +149,7 @@ export async function login(input: LoginInput) {
     data: { token: tokens.refreshToken, userId: user.id, expiresAt },
   })
 
-  const { passwordHash: _, ...safeUser } = user
+  const { passwordHash: _, totpSecret: _s, ...safeUser } = user
   return { user: safeUser, ...tokens }
 }
 

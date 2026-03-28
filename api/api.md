@@ -649,6 +649,110 @@ All errors return JSON in this shape:
 
 ---
 
+## File Uploads (Images)
+
+Images are stored on disk at `/app/data/uploads/` (Docker volume). Served statically at `GET /uploads/:filename`.
+
+### `POST /api/users/:id/avatar`
+Requires: self OR `MANAGE_USERS`
+Multipart form upload, field name `avatar`. Accepts JPEG/PNG/WebP, max 2MB.
+Stores file and updates `user.avatarUrl`. Returns updated user.
+
+### `POST /api/libraries/:id/image`
+Requires: `MANAGE_LIBRARY_IMAGE` permission (admin-only by default).
+Multipart form upload, field name `image`. Accepts JPEG/PNG/WebP, max 5MB.
+Stores file and updates `library.imageUrl`. Returns updated library.
+
+### `DELETE /api/users/:id/avatar`
+Requires: self OR `MANAGE_USERS`. Removes avatar file and clears `avatarUrl`.
+
+### `DELETE /api/libraries/:id/image`
+Requires: `MANAGE_LIBRARY_IMAGE`. Removes image file and clears `imageUrl`.
+
+---
+
+## White Label Settings
+
+Stored as `SystemSetting` keys, configurable in `/admin/settings`:
+
+| Key | Default | Description |
+|---|---|---|
+| `brand.appName` | `Library Portal` | Application name shown in navbar and page titles |
+| `brand.logoUrl` | — | URL to a custom logo image (replaces the BookOpen icon) |
+| `brand.primaryColor` | `#2563eb` (blue-600) | Primary accent colour used for buttons, links, active states |
+| `brand.faviconUrl` | — | URL to a custom favicon |
+
+The frontend reads these from `GET /api/settings/public` (no auth required) and applies them on load.
+
+---
+
+## Two-Factor Authentication (2FA)
+
+### Settings
+
+| Key | Default | Description |
+|---|---|---|
+| `2fa.requiredRoles` | `[]` (JSON array) | Role names that must have 2FA enabled. Empty = optional for all. |
+| `2fa.methods` | `["totp","securityKey"]` | Allowed 2FA methods |
+
+When dev mode is on (`dev.enabled = true`), 2FA requirements are bypassed entirely.
+
+### Schema additions
+
+User gains: `totpSecret` (encrypted), `totpVerified` (boolean), `securityKeys` (relation to `SecurityKey` model).
+
+`SecurityKey` model: `id`, `userId`, `credentialId`, `publicKey`, `counter`, `name`, `createdAt`.
+
+### Endpoints
+
+#### `POST /api/auth/2fa/totp/setup`
+Requires: Bearer token. Generates a TOTP secret and returns:
+```json
+{ "secret": "...", "otpauthUrl": "otpauth://totp/LibraryPortal:user@email?secret=...&issuer=LibraryPortal", "qrCode": "data:image/png;base64,..." }
+```
+
+#### `POST /api/auth/2fa/totp/verify`
+Requires: Bearer token. Confirms setup by verifying a TOTP code:
+```json
+{ "code": "123456" }
+```
+On success, marks `totpVerified = true`.
+
+#### `DELETE /api/auth/2fa/totp`
+Requires: Bearer token. Removes TOTP from the account.
+
+#### `POST /api/auth/2fa/security-key/register`
+Requires: Bearer token. Returns WebAuthn registration options (challenge).
+
+#### `POST /api/auth/2fa/security-key/verify`
+Requires: Bearer token. Completes WebAuthn registration with attestation response.
+
+#### `DELETE /api/auth/2fa/security-key/:id`
+Requires: Bearer token. Removes a security key.
+
+#### Login flow with 2FA
+
+`POST /api/auth/login` with correct credentials returns:
+- If 2FA not set up and not required: normal `{ user, accessToken, refreshToken }`
+- If 2FA is set up or required: `{ userId, requires2FA: true, methods: ["totp", "securityKey"] }`
+
+Then the client calls:
+- `POST /api/auth/2fa/challenge` with `{ userId, method: "totp", code: "123456" }` OR
+- `POST /api/auth/2fa/challenge` with `{ userId, method: "securityKey", assertion: {...} }`
+
+On success: returns `{ user, accessToken, refreshToken }`.
+
+---
+
+## New Permissions
+
+| Permission | MEMBER | LIBRARIAN | Description |
+|---|---|---|---|
+| `CREATE_LIBRARY` | ✗ | ✗ | Create new libraries (admin-only by default) |
+| `MANAGE_LIBRARY_IMAGE` | ✗ | ✗ | Upload/remove library images (admin-only by default) |
+
+---
+
 ## Seed Accounts
 
 | Role | Email | Password |
