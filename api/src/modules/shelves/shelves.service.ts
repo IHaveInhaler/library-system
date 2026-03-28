@@ -110,3 +110,40 @@ export async function deleteShelf(id: string) {
   }
   return prisma.shelf.delete({ where: { id } })
 }
+
+export async function migratePosition(fromPosition: string, toPosition: string) {
+  if (!fromPosition || !toPosition) throw new BadRequestError('Both fromPosition and toPosition are required')
+  if (fromPosition === toPosition) throw new BadRequestError('Positions must be different')
+
+  // Find all shelves with the old position
+  const shelves = await prisma.shelf.findMany({
+    where: { position: fromPosition },
+    include: { library: { select: { labelPrefix: true } } },
+  })
+
+  if (shelves.length === 0) {
+    return { migrated: 0, changes: [] }
+  }
+
+  const changes: { shelfId: string; code: string; oldLabel: string; newLabel: string; library: string }[] = []
+
+  for (const shelf of shelves) {
+    const oldLabel = shelf.label
+    const newLabel = await generateUniqueLabel(shelf.library.labelPrefix, toPosition as ShelfPosition)
+
+    await prisma.shelf.update({
+      where: { id: shelf.id },
+      data: { position: toPosition, label: newLabel },
+    })
+
+    changes.push({
+      shelfId: shelf.id,
+      code: shelf.code,
+      oldLabel,
+      newLabel,
+      library: shelf.library.labelPrefix,
+    })
+  }
+
+  return { migrated: changes.length, changes }
+}

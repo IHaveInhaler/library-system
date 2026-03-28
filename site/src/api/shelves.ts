@@ -14,4 +14,7 @@ export const shelvesApi = {
     api.patch<Shelf>(`/shelves/${id}`, data).then((r) => r.data),
 
   remove: (id: string) => api.delete(`/shelves/${id}`),
+
+  migratePosition: (fromPosition: string, toPosition: string) =>
+    api.post('/shelves/migrate-position', { fromPosition, toPosition }).then((r) => r.data),
 }

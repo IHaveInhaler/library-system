@@ -30,6 +30,7 @@ const ALLOWED_KEYS = [
   'images.allowedTypes',
   'images.avatarMaxSizeMB',
   'images.libraryMaxSizeMB',
+  'shelf.positions',
 ]
 
 async function buildSettingsResponse() {
@@ -83,6 +84,7 @@ const KEY_PERMISSIONS: Record<string, string> = {
   'reg.': 'CONFIGURE_REGISTRATION',
   'membership.': 'CONFIGURE_GENERAL',
   '2fa.': 'CONFIGURE_2FA',
+  'shelf.': 'CONFIGURE_BARCODES',
   'barcode.': 'CONFIGURE_BARCODES',
   'images.': 'CONFIGURE_IMAGES',
   'dev.': 'ADMIN', // Dev mode is admin-only, not permission-based

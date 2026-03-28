@@ -25,6 +25,7 @@ export const PERMISSIONS: PermissionInfo[] = [
   { key: 'CREATE_SHELF', label: 'Create Shelf', description: 'Add new shelves to libraries where the user has Staff access.', category: 'Libraries' },
   { key: 'MANAGE_SHELVES', label: 'Manage Shelves', description: 'Edit shelves (code, location, genre, position). Requires Staff access.', category: 'Libraries' },
   { key: 'DELETE_SHELF', label: 'Delete Shelf', description: 'Remove shelves. Only empty shelves can be deleted.', category: 'Libraries' },
+  { key: 'MANAGE_SHELF_POSITIONS', label: 'Manage Shelf Positions', description: 'Add, remove, and migrate shelf positions (L/M/R etc). Affects barcode labels.', category: 'Libraries' },
   { key: 'MANAGE_MEMBERSHIPS', label: 'Manage Memberships', description: 'Grant, revoke, and edit library memberships for users.', category: 'Libraries' },
 
   // Books & Copies

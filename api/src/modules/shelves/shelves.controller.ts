@@ -51,3 +51,13 @@ export async function remove(req: Request, res: Response, next: NextFunction): P
     next(err)
   }
 }
+
+export async function migratePosition(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { fromPosition, toPosition } = req.body
+    const result = await shelvesService.migratePosition(fromPosition, toPosition)
+    res.json(result)
+  } catch (err) {
+    next(err)
+  }
+}

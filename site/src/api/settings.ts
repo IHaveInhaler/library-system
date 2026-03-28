@@ -28,6 +28,7 @@ export type SettingKey =
   | 'images.allowedTypes'
   | 'images.avatarMaxSizeMB'
   | 'images.libraryMaxSizeMB'
+  | 'shelf.positions'
 
 export type SettingsResponse = {
   settings: Record<SettingKey, string>

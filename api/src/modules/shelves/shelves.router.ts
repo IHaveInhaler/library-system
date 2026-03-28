@@ -14,4 +14,7 @@ router.post('/', authenticate, authorizePermission('CREATE_SHELF'), validate(cre
 router.patch('/:id', authenticate, authorizePermission('MANAGE_SHELVES'), validate(updateShelfSchema), controller.update)
 router.delete('/:id', authenticate, authorizePermission('DELETE_SHELF'), controller.remove)
 
+// Migrate shelves from one position to another (regenerates labels)
+router.post('/migrate-position', authenticate, authorizePermission('MANAGE_SHELF_POSITIONS'), controller.migratePosition)
+
 export default router

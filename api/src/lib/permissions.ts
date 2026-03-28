@@ -11,6 +11,7 @@ export const PERMISSIONS = [
   'CREATE_SHELF',
   'MANAGE_SHELVES',
   'DELETE_SHELF',
+  'MANAGE_SHELF_POSITIONS',
   'MANAGE_MEMBERSHIPS',
 
   // Books & Copies
