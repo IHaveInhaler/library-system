@@ -693,12 +693,12 @@ function BarcodeSettings() {
   const qc = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
   const [shelfFormat, setShelfFormat] = useState('{PREFIX}-{POSITION}{DIGITS}{CHECK}')
-  const [copyFormat, setCopyFormat] = useState('{PREFIX}-{BOOK}-{SEQ}')
+  const [copyFormat, setCopyFormat] = useState('{PREFIX}-{ISBN}-{SEQ}')
 
   useEffect(() => {
     if (data) {
       setShelfFormat(data.settings['barcode.shelfFormat'] || '{PREFIX}-{POSITION}{DIGITS}{CHECK}')
-      setCopyFormat(data.settings['barcode.copyFormat'] || '{PREFIX}-{BOOK}-{SEQ}')
+      setCopyFormat(data.settings['barcode.copyFormat'] || '{PREFIX}-{ISBN}-{SEQ}')
     }
   }, [data])
 
@@ -731,7 +731,7 @@ function BarcodeSettings() {
         <div>
           <Input label="Book copy barcode format" value={copyFormat} onChange={(e) => setCopyFormat(e.target.value)} />
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-            Variables: <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{PREFIX}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{BOOK}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{SEQ}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{RANDOM}'}</code>
+            Variables: <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{PREFIX}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{ISBN}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{SEQ}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{RANDOM}'}</code>
           </p>
         </div>
         <div className="flex justify-end">
