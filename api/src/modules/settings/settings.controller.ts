@@ -26,6 +26,10 @@ const ALLOWED_KEYS = [
   '2fa.securityKeysOnly',
   'barcode.shelfFormat',
   'barcode.copyFormat',
+  'images.maxSizeMB',
+  'images.allowedTypes',
+  'images.avatarMaxSizeMB',
+  'images.libraryMaxSizeMB',
 ]
 
 async function buildSettingsResponse() {
@@ -80,6 +84,7 @@ const KEY_PERMISSIONS: Record<string, string> = {
   'membership.': 'CONFIGURE_GENERAL',
   '2fa.': 'CONFIGURE_2FA',
   'barcode.': 'CONFIGURE_BARCODES',
+  'images.': 'CONFIGURE_IMAGES',
   'dev.': 'ADMIN', // Dev mode is admin-only, not permission-based
 }
 

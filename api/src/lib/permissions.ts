@@ -35,9 +35,10 @@ export const PERMISSIONS = [
   'DELETE_USER',
   'RESET_USER_PASSWORD',
 
-  // Barcodes
+  // Barcodes & Images
   'CONFIGURE_BARCODES',
   'CREATE_BARCODES',
+  'CONFIGURE_IMAGES',
 
   // System
   'VIEW_AUDIT_LOG',

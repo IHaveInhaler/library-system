@@ -1,319 +1,184 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Tag, Pencil, Check, X, GripVertical } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Tag, X, BookOpen } from 'lucide-react'
 import { categoriesApi, type Category } from '../../api/categories'
+import { booksApi } from '../../api/books'
 import { PageSpinner } from '../../components/ui/Spinner'
+import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { extractError } from '../../api/client'
+import type { Book } from '../../types'
 
-// ── Color Swatch ─────────────────────────────────────────────────────────────
+// ── Create Modal ────────────────────────────────────────────────────────────
 
-function ColorSwatch({ color, size = 'md' }: { color: string | null; size?: 'sm' | 'md' }) {
-  const px = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'
-  if (!color) {
-    return (
-      <span className={`${px} inline-block rounded-full border border-dashed border-gray-300 dark:border-gray-600`} title="No color" />
-    )
-  }
-  return (
-    <span
-      className={`${px} inline-block rounded-full border border-gray-200 dark:border-gray-600`}
-      style={{ backgroundColor: color }}
-      title={color}
-    />
-  )
-}
-
-// ── Create Modal ─────────────────────────────────────────────────────────────
-
-function CreateModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: () => void }) {
+function CreateModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const qc = useQueryClient()
   const [name, setName] = useState('')
   const [label, setLabel] = useState('')
-  const [color, setColor] = useState('#6366f1')
-  const [useColor, setUseColor] = useState(false)
+  const [color, setColor] = useState('#3b82f6')
   const [nameError, setNameError] = useState('')
 
   const create = useMutation({
-    mutationFn: () =>
-      categoriesApi.create({
-        name,
-        label,
-        color: useColor ? color : undefined,
-      }),
-    onSuccess: () => {
-      toast.success(`Category "${label}" created`)
-      onSuccess()
-      handleClose()
-    },
+    mutationFn: () => categoriesApi.create({ name, label, color }),
+    onSuccess: () => { toast.success(`Category "${label}" created`); qc.invalidateQueries({ queryKey: ['categories'] }); onClose(); setName(''); setLabel(''); setColor('#3b82f6') },
     onError: (err) => toast.error(extractError(err)),
   })
 
-  const handleClose = () => {
-    setName('')
-    setLabel('')
-    setColor('#6366f1')
-    setUseColor(false)
-    setNameError('')
-    onClose()
-  }
-
   const validateName = (v: string) => {
-    if (!/^[A-Z][A-Z0-9_]*$/.test(v)) setNameError('Uppercase letters, digits, underscores — starts with letter')
+    if (v && !/^[A-Z][A-Z0-9_]*$/.test(v)) setNameError('Uppercase letters, digits, underscores')
     else setNameError('')
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Create Category">
+    <Modal open={open} onClose={onClose} title="Create Category">
       <div className="space-y-4">
-        <Input
-          label="Name (machine key)"
-          placeholder="e.g. FICTION"
-          value={name}
-          onChange={(e) => { setName(e.target.value.toUpperCase()); validateName(e.target.value.toUpperCase()) }}
-          error={nameError}
-        />
-        <Input
-          label="Display label"
-          placeholder="e.g. Fiction"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-        />
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={useColor}
-              onChange={(e) => setUseColor(e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-600"
-            />
-            Assign a color
-          </label>
-          {useColor && (
-            <div className="mt-2 flex items-center gap-3">
-              <input
-                type="color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                className="h-9 w-9 cursor-pointer rounded-lg border border-gray-300 bg-transparent p-0.5 dark:border-gray-600"
-              />
-              <span className="text-sm font-mono text-gray-500 dark:text-gray-400">{color}</span>
-            </div>
-          )}
+        <Input label="Name (machine key)" placeholder="e.g. MYSTERY" value={name}
+          onChange={(e) => { setName(e.target.value.toUpperCase()); validateName(e.target.value.toUpperCase()) }} error={nameError} />
+        <Input label="Display label" placeholder="e.g. Mystery" value={label} onChange={(e) => setLabel(e.target.value)} />
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Color</label>
+          <div className="flex items-center gap-2">
+            <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 cursor-pointer rounded border-0" />
+            <input value={color} onChange={(e) => setColor(e.target.value)} className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-mono text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+          </div>
         </div>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button variant="secondary" onClick={handleClose}>Cancel</Button>
-          <Button onClick={() => create.mutate()} loading={create.isPending} disabled={!name || !label || !!nameError}>
-            Create
-          </Button>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => create.mutate()} loading={create.isPending} disabled={!name || !label || !!nameError}>Create</Button>
         </div>
       </div>
     </Modal>
   )
 }
 
-// ── Category Card ────────────────────────────────────────────────────────────
+// ── Category Detail Drawer ──────────────────────────────────────────────────
 
-function CategoryCard({ category, onDelete }: { category: Category; onDelete: (id: string) => void }) {
-  const [editingLabel, setEditingLabel] = useState(false)
-  const [labelDraft, setLabelDraft] = useState(category.label)
-  const [editingColor, setEditingColor] = useState(false)
-  const [colorDraft, setColorDraft] = useState(category.color ?? '#6366f1')
+function CategoryDrawer({ category, onClose }: { category: Category; onClose: () => void }) {
   const qc = useQueryClient()
+  const [label, setLabel] = useState(category.label)
+  const [color, setColor] = useState(category.color ?? '#6b7280')
 
-  const updateLabel = useMutation({
-    mutationFn: () => categoriesApi.update(category.id, { label: labelDraft }),
-    onSuccess: () => { toast.success('Label updated'); setEditingLabel(false); qc.invalidateQueries({ queryKey: ['categories'] }) },
+  const { data: books, isLoading: booksLoading } = useQuery({
+    queryKey: ['books', 'category', category.name],
+    queryFn: () => booksApi.list({ genre: category.name, limit: 50 }),
+  })
+
+  const update = useMutation({
+    mutationFn: () => categoriesApi.update(category.id, { label, color }),
+    onSuccess: () => { toast.success('Category updated'); qc.invalidateQueries({ queryKey: ['categories'] }) },
     onError: (err) => toast.error(extractError(err)),
   })
 
-  const updateColor = useMutation({
-    mutationFn: () => categoriesApi.update(category.id, { color: colorDraft }),
-    onSuccess: () => { toast.success('Color updated'); setEditingColor(false); qc.invalidateQueries({ queryKey: ['categories'] }) },
+  const remove = useMutation({
+    mutationFn: () => categoriesApi.remove(category.id),
+    onSuccess: () => { toast.success('Category deleted'); qc.invalidateQueries({ queryKey: ['categories'] }); onClose() },
     onError: (err) => toast.error(extractError(err)),
   })
-
-  const [confirmDelete, setConfirmDelete] = useState(false)
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-      <div className="flex items-center gap-3 px-4 py-3">
-        <div className="flex cursor-grab items-center text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 active:cursor-grabbing">
-          <GripVertical className="h-4 w-4" />
-        </div>
-
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700">
-          <Tag className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          {/* Label row */}
-          <div className="flex items-center gap-2">
-            {editingLabel ? (
-              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                <input
-                  autoFocus
-                  value={labelDraft}
-                  onChange={(e) => setLabelDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') updateLabel.mutate(); if (e.key === 'Escape') setEditingLabel(false) }}
-                  className="rounded border border-gray-300 bg-white px-2 py-0.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                />
-                <button onClick={() => updateLabel.mutate()} className="rounded p-0.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30"><Check className="h-3.5 w-3.5" /></button>
-                <button onClick={() => { setEditingLabel(false); setLabelDraft(category.label) }} className="rounded p-0.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X className="h-3.5 w-3.5" /></button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <p className="font-semibold text-gray-900 dark:text-white">{category.label}</p>
-                <button
-                  onClick={() => setEditingLabel(true)}
-                  className="rounded p-0.5 text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400"
-                >
-                  <Pencil className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Info row: name + color */}
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span className="font-mono">{category.name}</span>
-            <span>·</span>
-            {editingColor ? (
-              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                <input
-                  type="color"
-                  value={colorDraft}
-                  onChange={(e) => setColorDraft(e.target.value)}
-                  className="h-5 w-5 cursor-pointer rounded border border-gray-300 bg-transparent p-0 dark:border-gray-600"
-                />
-                <span className="font-mono text-[11px]">{colorDraft}</span>
-                <button onClick={() => updateColor.mutate()} className="rounded p-0.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30"><Check className="h-3 w-3" /></button>
-                <button onClick={() => { setEditingColor(false); setColorDraft(category.color ?? '#6366f1') }} className="rounded p-0.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X className="h-3 w-3" /></button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <ColorSwatch color={category.color} size="sm" />
-                {category.color && <span className="font-mono text-[11px]">{category.color}</span>}
-                {!category.color && <span className="text-[11px]">No color</span>}
-                <button
-                  onClick={() => setEditingColor(true)}
-                  className="rounded p-0.5 text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400"
-                >
-                  <Pencil className="h-3 w-3" />
-                </button>
-              </div>
-            )}
-            <span>·</span>
-            <span>#{category.order}</span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {confirmDelete ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-red-500 dark:text-red-400">Delete?</span>
-              <button
-                onClick={() => onDelete(category.id)}
-                className="rounded-md p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
-                title="Confirm delete"
-              >
-                <Check className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                title="Cancel"
-              >
-                <X className="h-4 w-4" />
-              </button>
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative flex h-full w-full max-w-lg flex-col bg-white shadow-2xl dark:bg-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: (category.color ?? '#6b7280') + '20' }}>
+              <Tag className="h-4 w-4" style={{ color: category.color ?? '#6b7280' }} />
             </div>
-          ) : (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="rounded-md p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/30 dark:hover:text-red-400"
-              title="Delete category"
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-white">{category.label}</p>
+              <p className="font-mono text-xs text-gray-500 dark:text-gray-400">{category.name}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Edit section */}
+          <div className="space-y-4">
+            <Input label="Display label" value={label} onChange={(e) => setLabel(e.target.value)} />
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Color</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-9 cursor-pointer rounded border-0" />
+                <input value={color} onChange={(e) => setColor(e.target.value)} className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-mono text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+              </div>
+            </div>
+            <Button onClick={() => update.mutate()} loading={update.isPending}>Save changes</Button>
+          </div>
+
+          {/* Books in this category */}
+          <div className="border-t border-gray-100 pt-6 dark:border-gray-700">
+            <h3 className="mb-3 text-sm font-medium text-gray-900 dark:text-white">
+              Books in this category
+              {books && <span className="ml-1 font-normal text-gray-400">({books.meta.total})</span>}
+            </h3>
+            {booksLoading ? (
+              <p className="text-sm text-gray-400 dark:text-gray-500">Loading…</p>
+            ) : !books?.data.length ? (
+              <p className="text-sm text-gray-400 dark:text-gray-500">No books in this category yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {books.data.map((book: Book) => (
+                  <Link
+                    key={book.id}
+                    to={`/books/${book.id}`}
+                    className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-900/20"
+                  >
+                    {book.coverUrl ? (
+                      <img src={book.coverUrl} alt="" className="h-10 w-7 flex-shrink-0 rounded object-cover" />
+                    ) : (
+                      <div className="flex h-10 w-7 flex-shrink-0 items-center justify-center rounded bg-gray-100 dark:bg-gray-700">
+                        <BookOpen className="h-3.5 w-3.5 text-gray-400" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 line-clamp-1 dark:text-white">{book.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{book.author}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Delete */}
+          <div className="border-t border-gray-100 pt-4 dark:border-gray-700">
+            <Button
+              variant="ghost" size="sm"
+              className="text-red-500 hover:text-red-700 dark:text-red-400"
+              onClick={() => { if (confirm(`Delete "${category.label}"? Books must be reassigned first.`)) remove.mutate() }}
+              loading={remove.isPending}
             >
-              <Trash2 className="h-4 w-4" />
-            </button>
-          )}
+              <Trash2 className="h-4 w-4" /> Delete category
+            </Button>
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Page ────────────────────────────────────────────────────────────────────
 
 export default function CategoriesPage() {
   const [createOpen, setCreateOpen] = useState(false)
-  const [orderedCategories, setOrderedCategories] = useState<Category[] | null>(null)
-  const qc = useQueryClient()
+  const [selected, setSelected] = useState<Category | null>(null)
 
   const { data: categories, isLoading } = useQuery({
     queryKey: ['categories'],
     queryFn: categoriesApi.list,
-    select: (data) => [...data].sort((a, b) => a.order - b.order),
   })
-
-  const displayCategories = orderedCategories ?? categories ?? []
-
-  const deleteCategory = useMutation({
-    mutationFn: categoriesApi.remove,
-    onSuccess: () => {
-      toast.success('Category deleted')
-      qc.invalidateQueries({ queryKey: ['categories'] })
-    },
-    onError: (err) => toast.error(extractError(err)),
-  })
-
-  const reorder = useMutation({
-    mutationFn: (ids: string[]) => categoriesApi.reorder(ids),
-    onSuccess: () => {
-      toast.success('Order saved')
-      qc.invalidateQueries({ queryKey: ['categories'] })
-      setOrderedCategories(null)
-    },
-    onError: (err) => {
-      toast.error(extractError(err))
-      setOrderedCategories(null)
-    },
-  })
-
-  // ── Drag-and-drop ──────────────────────────────────────────────────────────
-  const dragIndex = useRef<number | null>(null)
-  const dragOverIndex = useRef<number | null>(null)
-
-  const handleDragStart = (index: number) => {
-    dragIndex.current = index
-  }
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault()
-    dragOverIndex.current = index
-    if (dragIndex.current === null || dragIndex.current === index) return
-
-    const newList = [...displayCategories]
-    const [moved] = newList.splice(dragIndex.current, 1)
-    newList.splice(index, 0, moved)
-    dragIndex.current = index
-    setOrderedCategories(newList)
-  }
-
-  const handleDragEnd = () => {
-    if (orderedCategories) {
-      reorder.mutate(orderedCategories.map((c) => c.id))
-    }
-    dragIndex.current = null
-    dragOverIndex.current = null
-  }
 
   if (isLoading) return <PageSpinner />
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-8">
       <Link to="/manage" className="mb-6 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white">
         <ArrowLeft className="h-4 w-4" /> Manage
       </Link>
@@ -321,44 +186,37 @@ export default function CategoriesPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Categories</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Manage book and shelf categories (genres). Drag to reorder.
-          </p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Genres and classification for books and shelves</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" /> New Category
         </Button>
       </div>
 
-      {displayCategories.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-gray-200 py-8 text-center dark:border-gray-700">
-          <Tag className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">No categories yet. Create your first one above.</p>
-        </div>
+      {!categories?.length ? (
+        <EmptyState icon={Tag} title="No categories" description="Create a category to start classifying books." />
       ) : (
-        <div className="space-y-3">
-          {displayCategories.map((category, index) => (
-            <div
-              key={category.id}
-              draggable
-              onDragStart={() => handleDragStart(index)}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDragEnd={handleDragEnd}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setSelected(cat)}
+              className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
             >
-              <CategoryCard
-                category={category}
-                onDelete={(id) => deleteCategory.mutate(id)}
-              />
-            </div>
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: (cat.color ?? '#6b7280') + '20' }}>
+                <Tag className="h-5 w-5" style={{ color: cat.color ?? '#6b7280' }} />
+              </div>
+              <div>
+                <p className="font-medium text-gray-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">{cat.label}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{cat.name}</p>
+              </div>
+            </button>
           ))}
         </div>
       )}
 
-      <CreateModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ['categories'] })}
-      />
+      <CreateModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      {selected && <CategoryDrawer category={selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }

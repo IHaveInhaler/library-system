@@ -24,6 +24,10 @@ export type SettingKey =
   | '2fa.securityKeysOnly'
   | 'barcode.shelfFormat'
   | 'barcode.copyFormat'
+  | 'images.maxSizeMB'
+  | 'images.allowedTypes'
+  | 'images.avatarMaxSizeMB'
+  | 'images.libraryMaxSizeMB'
 
 export type SettingsResponse = {
   settings: Record<SettingKey, string>

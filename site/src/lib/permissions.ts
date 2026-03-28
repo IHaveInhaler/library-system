@@ -59,6 +59,7 @@ export const PERMISSIONS: PermissionInfo[] = [
   { key: 'CONFIGURE_REGISTRATION', label: 'Configure Registration', description: 'Edit registration mode, domain restrictions, approval, email confirmation.', category: 'System' },
   { key: 'CONFIGURE_2FA', label: 'Configure 2FA', description: 'Edit two-factor authentication requirements and enforce 2FA for roles.', category: 'System' },
   { key: 'CONFIGURE_BARCODES', label: 'Configure Barcodes', description: 'Edit barcode format templates for shelves and book copies.', category: 'System' },
+  { key: 'CONFIGURE_IMAGES', label: 'Configure Images', description: 'Edit image upload settings: max sizes, allowed types.', category: 'System' },
 ]
 
 export const PERMISSIONS_BY_CATEGORY = PERMISSION_CATEGORIES.map((cat) => ({

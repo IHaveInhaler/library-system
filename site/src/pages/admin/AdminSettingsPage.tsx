@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users, Globe, IdCard, Palette, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users, Globe, IdCard, Palette, ShieldCheck, Barcode, Image as ImageIcon } from 'lucide-react'
 import { settingsApi, type SettingKey } from '../../api/settings'
 import { groupsApi } from '../../api/groups'
 import { setupApi } from '../../api/setup'
 import { useAuthStore } from '../../store/auth'
 import { useBrandStore } from '../../store/brand'
 import { Button } from '../../components/ui/Button'
+import { Input } from '../../components/ui/Input'
 import { extractError } from '../../api/client'
 
 type SmtpFormState = {
@@ -686,6 +687,122 @@ function TwoFactorSettings() {
   )
 }
 
+// ── Barcode Settings Section ──────────────────────────────────────────────
+
+function BarcodeSettings() {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const [shelfFormat, setShelfFormat] = useState('{PREFIX}-{POSITION}{DIGITS}{CHECK}')
+  const [copyFormat, setCopyFormat] = useState('{PREFIX}-{BOOK}-{SEQ}')
+
+  useEffect(() => {
+    if (data) {
+      setShelfFormat(data.settings['barcode.shelfFormat'] || '{PREFIX}-{POSITION}{DIGITS}{CHECK}')
+      setCopyFormat(data.settings['barcode.copyFormat'] || '{PREFIX}-{BOOK}-{SEQ}')
+    }
+  }, [data])
+
+  const save = useMutation({
+    mutationFn: () => settingsApi.update({ 'barcode.shelfFormat': shelfFormat, 'barcode.copyFormat': copyFormat }),
+    onSuccess: (res) => { toast.success('Barcode settings saved'); qc.setQueryData(['settings'], res) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  if (isLoading) return <div className="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40">
+          <Barcode className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-gray-900 dark:text-white">Barcodes</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Format templates for shelf labels and book copy barcodes.</p>
+        </div>
+      </div>
+      <div className="space-y-4 p-6">
+        <div>
+          <Input label="Shelf label format" value={shelfFormat} onChange={(e) => setShelfFormat(e.target.value)} />
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            Variables: <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{PREFIX}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{POSITION}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{DIGITS}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{CHECK}'}</code>
+          </p>
+        </div>
+        <div>
+          <Input label="Book copy barcode format" value={copyFormat} onChange={(e) => setCopyFormat(e.target.value)} />
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+            Variables: <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{PREFIX}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{BOOK}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{SEQ}'}</code> <code className="rounded bg-gray-100 px-1 dark:bg-gray-700">{'{RANDOM}'}</code>
+          </p>
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Image Upload Settings Section ────────────────────────────────────────────
+
+function ImageUploadSettings() {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const [maxSize, setMaxSize] = useState('5')
+  const [avatarMax, setAvatarMax] = useState('2')
+  const [libraryMax, setLibraryMax] = useState('5')
+  const [allowedTypes, setAllowedTypes] = useState('image/jpeg, image/png, image/webp')
+
+  useEffect(() => {
+    if (data) {
+      setMaxSize(data.settings['images.maxSizeMB'] || '5')
+      setAvatarMax(data.settings['images.avatarMaxSizeMB'] || '2')
+      setLibraryMax(data.settings['images.libraryMaxSizeMB'] || '5')
+      setAllowedTypes(data.settings['images.allowedTypes'] || 'image/jpeg, image/png, image/webp')
+    }
+  }, [data])
+
+  const save = useMutation({
+    mutationFn: () => settingsApi.update({
+      'images.maxSizeMB': maxSize,
+      'images.avatarMaxSizeMB': avatarMax,
+      'images.libraryMaxSizeMB': libraryMax,
+      'images.allowedTypes': allowedTypes,
+    }),
+    onSuccess: (res) => { toast.success('Image settings saved'); qc.setQueryData(['settings'], res) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  if (isLoading) return <div className="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-pink-100 dark:bg-pink-900/40">
+          <ImageIcon className="h-4 w-4 text-pink-600 dark:text-pink-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-gray-900 dark:text-white">Image Uploads</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Configure file size limits and allowed types for all image uploads.</p>
+        </div>
+      </div>
+      <div className="space-y-4 p-6">
+        <div className="grid grid-cols-3 gap-3">
+          <Input label="Default max (MB)" type="number" value={maxSize} onChange={(e) => setMaxSize(e.target.value)} />
+          <Input label="Avatar max (MB)" type="number" value={avatarMax} onChange={(e) => setAvatarMax(e.target.value)} />
+          <Input label="Library max (MB)" type="number" value={libraryMax} onChange={(e) => setLibraryMax(e.target.value)} />
+        </div>
+        <div>
+          <Input label="Allowed MIME types" value={allowedTypes} onChange={(e) => setAllowedTypes(e.target.value)} />
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Comma-separated. Default: image/jpeg, image/png, image/webp</p>
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Factory Reset Section ──────────────────────────────────────────────────
 
 function FactoryResetSection() {
@@ -896,6 +1013,8 @@ export default function AdminSettingsPage() {
         <WhiteLabelSettings />
         <RegistrationSettings />
         <TwoFactorSettings />
+        <BarcodeSettings />
+        <ImageUploadSettings />
         <DeveloperSection />
         <FactoryResetSection />
       </div>
