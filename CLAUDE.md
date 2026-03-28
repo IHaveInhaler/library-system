@@ -68,6 +68,18 @@ Always consult `site/plan.md` before adding new pages or components to stay alig
 - The routing structure changes
 - Dark mode coverage needs updating
 
+## Barcode Plan
+
+The barcode system architecture lives at `api/barcodes.md`. It covers:
+- Shelf labels (Code 128) and book copy barcodes (DataMatrix) format templates
+- Barcode rendering via bwip-js (local, no external API)
+- Scanner integration (USB, Bluetooth, phone camera)
+- Printing: browser print with label sheets, thermal printer support (ZPL)
+- Print queue system
+- Implementation phases
+
+Always consult `api/barcodes.md` when implementing barcode features. Follow the implementation order defined there.
+
 ## Design Guidelines
 
 The frontend design language is documented in `site/web-design.md`. It covers:
