@@ -744,52 +744,106 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
 
           {/* ── Loans ── */}
           {tab === 'loans' && (
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <Button variant="secondary" onClick={() => setIssueLoanOpen(true)}><Plus className="h-4 w-4" /> Issue Loan</Button>
-              </div>
+            <div className="space-y-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Books currently on loan or previously borrowed by this user.
+              </p>
               {!loans ? <PageSpinner /> : loans.length === 0 ? (
-                <EmptyState icon={BookOpen} title="No loans" />
-              ) : loans.map((loan: Loan) => (
-                <div key={loan.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{loan.bookCopy.book.title}</p>
-                    <LoanStatusBadge status={loan.status} />
-                  </div>
-                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    Due {new Date(loan.dueDate).toLocaleDateString()} · {loan.renewCount} renewal{loan.renewCount !== 1 ? 's' : ''}
-                  </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{loan.bookCopy.shelf.library.name}</p>
+                <div className="rounded-lg border border-dashed border-gray-200 py-8 text-center dark:border-gray-700">
+                  <BookOpen className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No loans.</p>
                 </div>
-              ))}
+              ) : (
+                <div className="space-y-2">
+                  {loans.map((loan: Loan) => (
+                    <div key={loan.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${
+                          loan.status === 'ACTIVE' ? 'bg-blue-50 dark:bg-blue-900/30' :
+                          loan.status === 'OVERDUE' ? 'bg-red-50 dark:bg-red-900/30' :
+                          'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <BookOpen className={`h-4 w-4 ${
+                            loan.status === 'ACTIVE' ? 'text-blue-500' :
+                            loan.status === 'OVERDUE' ? 'text-red-500' :
+                            'text-gray-400'
+                          }`} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{loan.bookCopy.book.title}</p>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <span>{loan.bookCopy.shelf.library.name}</span>
+                            <span>·</span>
+                            <span>Due {new Date(loan.dueDate).toLocaleDateString()}</span>
+                            {loan.returnedAt && <><span>·</span><span>Returned {new Date(loan.returnedAt).toLocaleDateString()}</span></>}
+                            <span>·</span>
+                            <span>{loan.renewCount} renewal{loan.renewCount !== 1 ? 's' : ''}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <LoanStatusBadge status={loan.status} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button variant="secondary" onClick={() => setIssueLoanOpen(true)}>
+                <Plus className="h-4 w-4" /> Issue Loan
+              </Button>
             </div>
           )}
 
           {/* ── Reservations ── */}
           {tab === 'reservations' && (
-            <div className="space-y-2">
-              <div className="flex justify-end">
-                <Button variant="secondary" onClick={() => setMakeReservationOpen(true)}><Plus className="h-4 w-4" /> Make Reservation</Button>
-              </div>
+            <div className="space-y-4">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Active and past reservations for this user.
+              </p>
               {!reservations ? <PageSpinner /> : reservations.length === 0 ? (
-                <EmptyState icon={Bookmark} title="No reservations" />
-              ) : reservations.map((r: Reservation) => (
-                <div key={r.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{r.book.title}</p>
-                    {r.status === 'PENDING' ? (
-                      <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); setFulfillTarget(r) }}>
-                        Fulfill
-                      </Button>
-                    ) : (
-                      <ReservationStatusBadge status={r.status} />
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    Reserved {new Date(r.reservedAt).toLocaleDateString()}
-                  </p>
+                <div className="rounded-lg border border-dashed border-gray-200 py-8 text-center dark:border-gray-700">
+                  <Bookmark className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No reservations.</p>
                 </div>
-              ))}
+              ) : (
+                <div className="space-y-2">
+                  {reservations.map((r: Reservation) => (
+                    <div key={r.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${
+                          r.status === 'PENDING' ? 'bg-amber-50 dark:bg-amber-900/30' :
+                          r.status === 'FULFILLED' ? 'bg-green-50 dark:bg-green-900/30' :
+                          'bg-gray-100 dark:bg-gray-700'
+                        }`}>
+                          <Bookmark className={`h-4 w-4 ${
+                            r.status === 'PENDING' ? 'text-amber-500' :
+                            r.status === 'FULFILLED' ? 'text-green-500' :
+                            'text-gray-400'
+                          }`} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">{r.book.title}</p>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            <span>Reserved {new Date(r.reservedAt).toLocaleDateString()}</span>
+                            {r.expiresAt && <><span>·</span><span>Expires {new Date(r.expiresAt).toLocaleDateString()}</span></>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ReservationStatusBadge status={r.status} />
+                        {r.status === 'PENDING' && (
+                          <Button size="sm" variant="secondary" onClick={() => setFulfillTarget(r)}>
+                            Fulfill
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button variant="secondary" onClick={() => setMakeReservationOpen(true)}>
+                <Plus className="h-4 w-4" /> Make Reservation
+              </Button>
             </div>
           )}
 

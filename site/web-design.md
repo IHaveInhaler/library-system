@@ -258,6 +258,42 @@ Compact variant: `h-5 w-9` with `h-4 w-4` thumb and `translate-x-4`.
 
 ---
 
+## Drawer List Items (User Manage pattern)
+
+All list items in drawers (memberships, loans, reservations, activity) follow this pattern:
+
+```
+<div className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+  <div className="flex items-center gap-3">
+    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-{status-color}-50 dark:bg-{status-color}-900/30">
+      <Icon className="h-4 w-4 text-{status-color}-500" />
+    </div>
+    <div>
+      <p className="text-sm font-medium text-gray-900 dark:text-white">{title}</p>
+      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+        <span>{detail}</span> <span>·</span> <span>{detail2}</span>
+      </div>
+    </div>
+  </div>
+  <div className="flex items-center gap-2">
+    <Badge />
+    {/* Optional action button */}
+  </div>
+</div>
+```
+
+Icon box color reflects status:
+- Active/On loan: blue (`bg-blue-50 dark:bg-blue-900/30`)
+- Overdue/Danger: red (`bg-red-50 dark:bg-red-900/30`)
+- Pending: amber (`bg-amber-50 dark:bg-amber-900/30`)
+- Fulfilled/Success: green (`bg-green-50 dark:bg-green-900/30`)
+- Inactive/Returned: gray (`bg-gray-100 dark:bg-gray-700`)
+
+Empty state uses dashed border container with centered icon + text.
+Action buttons (Issue Loan, Make Reservation) go BELOW the list, not above.
+
+---
+
 ## Empty States
 
 - Centered icon + text inside a dashed border container
