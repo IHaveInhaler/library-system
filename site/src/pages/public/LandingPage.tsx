@@ -236,7 +236,10 @@ export default function LandingPage() {
             )}
             {appName}
           </div>
-          <p className="text-sm text-gray-600">&copy; {new Date().getFullYear()}</p>
+          <div className="flex items-center gap-3 text-sm text-gray-600">
+            <a href="https://github.com/IHaveInhaler/library-system/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="hover:text-gray-400 transition-colors">MIT License</a>
+            <span>&copy; {new Date().getFullYear()}</span>
+          </div>
         </div>
       </footer>
     </div>
