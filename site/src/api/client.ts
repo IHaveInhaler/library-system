@@ -3,13 +3,16 @@ import { useAuthStore } from '../store/auth'
 
 export const api = axios.create({
   baseURL: '/api',
-  headers: { 'Content-Type': 'application/json' },
 })
 
-// Inject access token on every request
+// Inject access token and content type on every request
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken
   if (token) config.headers.Authorization = `Bearer ${token}`
+  // Only set JSON content type if not FormData (let browser set multipart boundary)
+  if (!(config.data instanceof FormData)) {
+    config.headers['Content-Type'] = 'application/json'
+  }
   return config
 })
 

@@ -23,12 +23,20 @@ export const bookQuerySchema = z.object({
   search: z.string().optional(),
   author: z.string().optional(),
   language: z.string().optional(),
+  shelfId: z.string().optional(),
+  libraryId: z.string().optional(),
 })
 
 export const isbnLookupSchema = z.object({
   isbn: z.string().min(10).max(20),
   genre: z.nativeEnum(Genre).optional(),
   shelfId: z.string().uuid().optional(),
+  title: z.string().min(1).max(500).optional(),
+  author: z.string().min(1).max(300).optional(),
+  publisher: z.string().max(200).optional(),
+  publishedYear: z.number().int().min(1000).max(new Date().getFullYear()).optional(),
+  description: z.string().max(5000).optional(),
+  language: z.string().length(2).optional(),
 })
 
 export type CreateBookInput = z.infer<typeof createBookSchema>

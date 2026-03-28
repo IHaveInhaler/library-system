@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma'
-import { NotFoundError } from '../../errors/index'
+import { NotFoundError, BadRequestError } from '../../errors/index'
+import { getSetting } from '../../lib/settings'
 import { CreateMembershipInput, UpdateMembershipInput } from './memberships.schemas'
 
 export async function listMemberships(libraryId: string) {
@@ -7,6 +8,7 @@ export async function listMemberships(libraryId: string) {
     where: { libraryId },
     include: {
       user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+      type: true,
     },
     orderBy: { createdAt: 'desc' },
   })
@@ -31,16 +33,37 @@ export async function createMembership(libraryId: string, input: CreateMembershi
   const user = await prisma.user.findUnique({ where: { id: input.userId } })
   if (!user) throw new NotFoundError('User')
 
+  // Validate membership type exists
+  if (input.membershipType) {
+    const mType = await prisma.membershipType.findUnique({ where: { name: input.membershipType } })
+    if (!mType) throw new BadRequestError(`Unknown membership type: ${input.membershipType}`)
+  }
+
   const existing = await prisma.libraryMembership.findUnique({
     where: { userId_libraryId: { userId: input.userId, libraryId } },
   })
 
-  // Auto-compute endDate for MONTHLY type if not provided
+  // Auto-compute endDate from MembershipType duration if not provided
   let endDate = input.endDate
-  if (input.membershipType === 'MONTHLY' && !endDate) {
-    const start = input.startDate ?? new Date()
-    endDate = new Date(start)
-    endDate.setMonth(endDate.getMonth() + 1)
+  if (!endDate && input.membershipType) {
+    const mType = await prisma.membershipType.findUnique({ where: { name: input.membershipType } })
+    if (mType && (mType.durationMonths || mType.durationDays)) {
+      const calendarMode = (await getSetting('membership.calendarMonths')) !== 'false' // default true
+      const start = new Date(input.startDate ?? new Date())
+
+      if (mType.durationMonths && calendarMode) {
+        // Calendar month: Jan 14 + 1 month = Feb 14
+        endDate = new Date(start)
+        endDate.setMonth(endDate.getMonth() + mType.durationMonths)
+      } else if (mType.durationMonths && !calendarMode) {
+        // Flat days fallback: 1 month = 30 days, 12 months = 365 days
+        endDate = new Date(start)
+        endDate.setDate(endDate.getDate() + mType.durationMonths * 30)
+      } else if (mType.durationDays) {
+        endDate = new Date(start)
+        endDate.setDate(endDate.getDate() + mType.durationDays)
+      }
+    }
   }
 
   // If a membership (even revoked) already exists, reactivate/update it instead of creating

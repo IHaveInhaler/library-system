@@ -6,6 +6,7 @@ import { PageSpinner } from '../../components/ui/Spinner'
 import { extractError } from '../../api/client'
 
 const PERMISSION_LABELS: Record<string, { label: string; description: string }> = {
+  VIEW_LIBRARIES:          { label: 'View Libraries',         description: 'See libraries and shelves without a membership. When off, only libraries the user is a member of are visible.' },
   MANAGE_BOOKS:            { label: 'Manage Books',           description: 'Create, edit books and import via ISBN' },
   MANAGE_LIBRARIES:        { label: 'Manage Libraries',       description: 'Create and edit libraries' },
   MANAGE_SHELVES:          { label: 'Manage Shelves',         description: 'Create and edit shelves within libraries' },

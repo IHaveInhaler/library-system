@@ -12,3 +12,27 @@
     @apply bg-gray-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-white;
   }
 }
+
+@layer components {
+  .btn-primary {
+    background-color: var(--color-primary);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-primary-dark);
+  }
+
+  /* Links and active states */
+  .text-primary {
+    color: var(--color-primary);
+  }
+
+  /* Focus rings */
+  .ring-primary {
+    --tw-ring-color: var(--color-primary);
+  }
+
+  /* Active nav links */
+  .nav-active {
+    color: var(--color-primary);
+  }
+}

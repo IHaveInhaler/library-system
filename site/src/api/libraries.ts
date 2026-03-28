@@ -15,7 +15,8 @@ export const librariesApi = {
   update: (id: string, data: Partial<Library>) =>
     api.patch<Library>(`/libraries/${id}`, data).then((r) => r.data),
 
-  remove: (id: string) => api.delete(`/libraries/${id}`),
+  remove: (id: string, opts?: { action?: 'move' | 'delete'; targetLibraryId?: string }) =>
+    api.delete(`/libraries/${id}`, { data: opts }),
 
   memberships: {
     list: (libraryId: string) =>

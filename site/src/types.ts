@@ -1,4 +1,4 @@
-export type Role = 'MEMBER' | 'LIBRARIAN' | 'ADMIN'
+export type Role = string
 export type Genre = 'FICTION' | 'NON_FICTION' | 'SCIENCE' | 'HISTORY' | 'BIOGRAPHY' | 'TECHNOLOGY' | 'ARTS' | 'CHILDREN' | 'REFERENCE' | 'OTHER'
 export type CopyStatus = 'AVAILABLE' | 'ON_LOAN' | 'RESERVED' | 'DAMAGED' | 'RETIRED'
 export type LoanStatus = 'ACTIVE' | 'RETURNED' | 'OVERDUE'
@@ -21,8 +21,13 @@ export interface User {
   email: string
   firstName: string
   lastName: string
+  avatarUrl?: string | null
   role: Role
   isActive: boolean
+  emailVerified: boolean
+  deactivationReason?: string | null
+  activationReason?: string | null
+  staffLibraryIds?: string[] | null  // null = admin (all libraries), [] = none, [...] = specific
   createdAt: string
   updatedAt: string
 }
@@ -32,6 +37,7 @@ export interface Library {
   name: string
   labelPrefix: string
   email?: string
+  imageUrl?: string | null
   isActive: boolean
   isPrivate: boolean
   createdAt: string
@@ -39,13 +45,11 @@ export interface Library {
   _count?: { shelves: number }
 }
 
-export type MembershipType = 'PERMANENT' | 'MONTHLY' | 'FIXED'
-
 export interface LibraryMembership {
   id: string
   userId: string
   libraryId: string
-  membershipType: MembershipType
+  membershipType: string
   startDate: string
   endDate?: string
   isActive: boolean
@@ -53,6 +57,7 @@ export interface LibraryMembership {
   createdAt: string
   updatedAt: string
   user?: { id: string; firstName: string; lastName: string; email: string; role: string }
+  type?: { id: string; name: string; label: string; durationDays: number | null; isStaff: boolean }
 }
 
 export interface Shelf {
@@ -96,7 +101,7 @@ export interface BookCopy {
   bookId: string
   book: { id: string; title: string; author: string; isbn: string; genre: Genre }
   shelfId: string
-  shelf: { id: string; code: string; label: string; library: { id: string; name: string } }
+  shelf: { id: string; code: string; label: string; location?: string; library: { id: string; name: string } }
   acquiredAt: string
   createdAt: string
   updatedAt: string
@@ -107,7 +112,7 @@ export interface Loan {
   userId: string
   user: { id: string; firstName: string; lastName: string; email: string }
   bookCopyId: string
-  bookCopy: { id: string; book: { id: string; title: string; author: string; isbn: string }; shelf: { id: string; library: { id: string; name: string } } }
+  bookCopy: { id: string; barcode: string; book: { id: string; title: string; author: string; isbn: string }; shelf: { id: string; library: { id: string; name: string } } }
   status: LoanStatus
   borrowedAt: string
   dueDate: string
@@ -133,6 +138,18 @@ export interface Reservation {
   notes?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface AuditLog {
+  id: string
+  actorId?: string | null
+  actorName?: string | null
+  action: string
+  targetType?: string | null
+  targetId?: string | null
+  targetName?: string | null
+  metadata?: string | null
+  createdAt: string
 }
 
 export interface AuthResponse {

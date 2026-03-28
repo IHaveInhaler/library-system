@@ -3,7 +3,6 @@ import { Role } from '../../types'
 
 export const createUserSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(8),
   firstName: z.string().min(1).max(100),
   lastName: z.string().min(1).max(100),
   role: z.nativeEnum(Role).default(Role.MEMBER),

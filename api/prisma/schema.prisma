@@ -13,15 +13,77 @@ model User {
   passwordHash String
   firstName    String
   lastName     String
-  role         String   @default("MEMBER") // MEMBER | LIBRARIAN | ADMIN
-  isActive     Boolean  @default(true)
+  avatarUrl           String?
+  role                String   @default("MEMBER") // MEMBER | LIBRARIAN | ADMIN
+  isActive            Boolean  @default(true)
+  emailVerified       Boolean  @default(true)
+  deactivationReason  String?
+  activationReason    String?
+  totpSecret          String?  // encrypted TOTP secret
+  totpVerified        Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  loans              Loan[]
+  reservations       Reservation[]
+  refreshTokens      RefreshToken[]
+  memberships        LibraryMembership[]
+  auditLogs          AuditLog[]
+  passwordResetTokens PasswordResetToken[]
+  emailVerifications  EmailVerification[]
+  securityKeys       SecurityKey[]
+  bookNotes          BookNote[]
+}
+
+model SecurityKey {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String   @unique
+  publicKey    String   // base64 encoded
+  counter      Int      @default(0)
+  name         String   // user-friendly name e.g. "YubiKey 5"
+  createdAt    DateTime @default(now())
+}
+
+model BookNote {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId       String
+  book         Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  encryptedContent String // client-side encrypted markdown
+  iv           String   // initialization vector for decryption
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  loans         Loan[]
-  reservations  Reservation[]
-  refreshTokens RefreshToken[]
-  memberships   LibraryMembership[]
+  @@unique([userId, bookId])
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code      String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model RefreshToken {
@@ -39,6 +101,7 @@ model Library {
   name        String
   labelPrefix String   @unique // 3-letter prefix used in shelf labels e.g. "CEN"
   email       String?  @unique
+  imageUrl    String?
   isActive    Boolean  @default(true)
   isPrivate   Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -48,13 +111,29 @@ model Library {
   memberships LibraryMembership[]
 }
 
+model MembershipType {
+  id             String  @id @default(uuid())
+  name           String  @unique // e.g. PERMANENT, MONTHLY, STAFF
+  label          String  // Display name
+  durationDays   Int?    // Flat days — null = no auto-expiry
+  durationMonths Int?    // Calendar months — takes precedence over durationDays if set
+  isStaff        Boolean @default(false) // grants library management access
+  isBuiltIn      Boolean @default(false)
+  order          Int     @default(999)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  memberships LibraryMembership[]
+}
+
 model LibraryMembership {
   id             String    @id @default(uuid())
   userId         String
   user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   libraryId      String
   library        Library   @relation(fields: [libraryId], references: [id], onDelete: Cascade)
-  membershipType String    @default("PERMANENT") // PERMANENT | MONTHLY | FIXED
+  membershipType String    @default("PERMANENT") // references MembershipType.name
+  type           MembershipType? @relation(fields: [membershipType], references: [name])
   startDate      DateTime  @default(now())
   endDate        DateTime?
   isActive       Boolean   @default(true)
@@ -83,6 +162,16 @@ model Shelf {
   @@unique([libraryId, code])
 }
 
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique // machine name e.g. FICTION
+  label     String          // display name e.g. Fiction
+  color     String?         // optional hex color for badges
+  order     Int     @default(999)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Book {
   id            String   @id @default(uuid())
   isbn          String   @unique
@@ -90,7 +179,7 @@ model Book {
   author        String
   publisher     String?
   publishedYear Int?
-  genre         String   // same genre values as Shelf
+  genre         String   // references Category.name
   description   String?
   coverUrl      String?
   totalPages    Int?
@@ -100,6 +189,7 @@ model Book {
 
   copies       BookCopy[]
   reservations Reservation[]
+  notes        BookNote[]
 }
 
 model BookCopy {
@@ -143,6 +233,29 @@ model RolePermission {
   updatedAt  DateTime @updatedAt
 
   @@unique([role, permission])
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g. MEMBER, LIBRARIAN, ADMIN, SENIOR_LIBRARIAN
+  description String?
+  isBuiltIn   Boolean  @default(false)
+  order       Int      @default(999) // lower = higher rank; used for role assignment rules
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actorName  String?
+  action     String
+  targetType String?
+  targetId   String?
+  targetName String?
+  metadata   String?
+  createdAt  DateTime @default(now())
 }
 
 model Reservation {

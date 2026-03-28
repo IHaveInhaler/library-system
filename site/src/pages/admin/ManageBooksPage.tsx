@@ -1,11 +1,15 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { BookOpen, Search, X, Plus } from 'lucide-react'
+import { BookOpen, Search, X, Plus, Trash2, AlertTriangle, Upload, Image as ImageIcon } from 'lucide-react'
 import { booksApi } from '../../api/books'
 import { copiesApi } from '../../api/copies'
+import { loansApi } from '../../api/loans'
+import { reservationsApi } from '../../api/reservations'
 import { shelvesApi } from '../../api/shelves'
+import { uploadsApi } from '../../api/uploads'
+import { usersApi } from '../../api/users'
 import { PageSpinner } from '../../components/ui/Spinner'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Pagination } from '../../components/ui/Pagination'
@@ -14,7 +18,8 @@ import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { extractError } from '../../api/client'
-import type { Book, BookCopy } from '../../types'
+import { LoanStatusBadge, ReservationStatusBadge } from '../../components/ui/Badge'
+import type { Book, BookCopy, Loan, Reservation, User } from '../../types'
 
 const GENRES = ['FICTION', 'NON_FICTION', 'SCIENCE', 'HISTORY', 'BIOGRAPHY', 'TECHNOLOGY', 'ARTS', 'CHILDREN', 'REFERENCE', 'OTHER'] as const
 type Genre = typeof GENRES[number]
@@ -22,7 +27,8 @@ type Genre = typeof GENRES[number]
 // ── Book Detail Drawer ─────────────────────────────────────────────────────────
 function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
   const qc = useQueryClient()
-  const [tab, setTab] = useState<'details' | 'copies'>('details')
+  const [tab, setTab] = useState<'details' | 'copies' | 'loans' | 'reservations'>('details')
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
 
   // ── Details tab ──
   const [form, setForm] = useState({
@@ -35,6 +41,8 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
     language: book.language ?? 'en',
   })
 
+  const coverInputRef = useRef<HTMLInputElement>(null)
+
   const updateBook = useMutation({
     mutationFn: () => booksApi.update(book.id, {
       ...form,
@@ -43,6 +51,18 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
       description: form.description || undefined,
     }),
     onSuccess: () => { toast.success('Book updated'); qc.invalidateQueries({ queryKey: ['books'] }) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const uploadCover = useMutation({
+    mutationFn: (file: File) => uploadsApi.uploadBookCover(book.id, file),
+    onSuccess: () => { toast.success('Cover uploaded'); qc.invalidateQueries({ queryKey: ['books'] }) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const deleteCover = useMutation({
+    mutationFn: () => uploadsApi.deleteBookCover(book.id),
+    onSuccess: () => { toast.success('Cover removed'); qc.invalidateQueries({ queryKey: ['books'] }) },
     onError: (err) => toast.error(extractError(err)),
   })
 
@@ -91,12 +111,96 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
     onError: (err) => toast.error(extractError(err)),
   })
 
-  const tabs = ['details', 'copies'] as const
+  // ── Loans tab ──
+  const { data: bookLoans } = useQuery({
+    queryKey: ['loans', { bookId: book.id }],
+    queryFn: async () => {
+      // Get all copies, then fetch loans for each
+      const bookCopies = await booksApi.copies(book.id)
+      const copyIds = bookCopies.map((c) => c.id)
+      if (copyIds.length === 0) return []
+      const results = await Promise.all(copyIds.map((id) => loansApi.list({ bookCopyId: id, limit: 50 })))
+      return results.flatMap((r) => r.data)
+    },
+    enabled: tab === 'loans',
+  })
+
+  // ── Reservations tab ──
+  const { data: bookReservations } = useQuery({
+    queryKey: ['reservations', { bookId: book.id }],
+    queryFn: () => reservationsApi.list({ bookId: book.id, limit: 50 }),
+    enabled: tab === 'reservations',
+  })
+
+  // ── Issue Loan ──
+  const [showIssueLoan, setShowIssueLoan] = useState(false)
+  const [loanForm, setLoanForm] = useState({ bookCopyId: '', userId: '', dueDate: '' })
+  const [loanUserSearch, setLoanUserSearch] = useState('')
+
+  const { data: loanUserResults } = useQuery({
+    queryKey: ['users', 'search', loanUserSearch],
+    queryFn: () => usersApi.list({ search: loanUserSearch, limit: 8 }),
+    enabled: showIssueLoan && loanUserSearch.length >= 2,
+  })
+
+  const { data: availableCopies } = useQuery({
+    queryKey: ['books', book.id, 'copies', 'available'],
+    queryFn: async () => {
+      const allCopies = await booksApi.copies(book.id)
+      return allCopies.filter((c) => c.status === 'AVAILABLE')
+    },
+    enabled: showIssueLoan,
+  })
+
+  const issueLoan = useMutation({
+    mutationFn: () => loansApi.create({ userId: loanForm.userId, bookCopyId: loanForm.bookCopyId, dueDate: loanForm.dueDate }),
+    onSuccess: () => {
+      toast.success('Loan issued')
+      setShowIssueLoan(false)
+      setLoanForm({ bookCopyId: '', userId: '', dueDate: '' })
+      setLoanUserSearch('')
+      qc.invalidateQueries({ queryKey: ['loans'] })
+      qc.invalidateQueries({ queryKey: ['books', book.id, 'copies'] })
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  // ── Make Reservation ──
+  const [showMakeReservation, setShowMakeReservation] = useState(false)
+  const [reservationForm, setReservationForm] = useState({ userId: '', notes: '' })
+  const [reservationUserSearch, setReservationUserSearch] = useState('')
+
+  const { data: reservationUserResults } = useQuery({
+    queryKey: ['users', 'search', reservationUserSearch],
+    queryFn: () => usersApi.list({ search: reservationUserSearch, limit: 8 }),
+    enabled: showMakeReservation && reservationUserSearch.length >= 2,
+  })
+
+  const makeReservation = useMutation({
+    mutationFn: () => reservationsApi.create({ bookId: book.id, userId: reservationForm.userId, notes: reservationForm.notes || undefined }),
+    onSuccess: () => {
+      toast.success('Reservation created')
+      setShowMakeReservation(false)
+      setReservationForm({ userId: '', notes: '' })
+      setReservationUserSearch('')
+      qc.invalidateQueries({ queryKey: ['reservations'] })
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  // ── Delete book ──
+  const deleteBook = useMutation({
+    mutationFn: () => booksApi.remove(book.id),
+    onSuccess: () => { toast.success('Book deleted'); qc.invalidateQueries({ queryKey: ['books'] }); onClose() },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const tabs = ['details', 'copies', 'loans', 'reservations'] as const
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative flex h-full w-full max-w-xl flex-col bg-white shadow-2xl dark:bg-gray-900">
+      <div className="relative flex h-full w-full max-w-xl flex-col bg-white shadow-2xl dark:bg-gray-800">
         {/* Header */}
         <div className="flex items-start justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
           <div>
@@ -126,6 +230,44 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
           {/* ── Details ── */}
           {tab === 'details' && (
             <div className="space-y-4">
+              {/* Cover Image */}
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Cover Image</label>
+                {book.coverUrl ? (
+                  <div className="flex items-start gap-4">
+                    <img src={book.coverUrl} alt={book.title} className="h-32 w-auto rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
+                    <div className="flex flex-col gap-2">
+                      <Button size="sm" variant="secondary" onClick={() => coverInputRef.current?.click()} loading={uploadCover.isPending}>
+                        <Upload className="h-3.5 w-3.5" /> Replace
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => deleteCover.mutate()} loading={deleteCover.isPending}
+                        className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                        <Trash2 className="h-3.5 w-3.5" /> Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => coverInputRef.current?.click()}
+                    className="flex h-32 w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 text-sm text-gray-500 transition hover:border-blue-400 hover:text-blue-600 dark:border-gray-600 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400"
+                  >
+                    <ImageIcon className="h-5 w-5" />
+                    Upload cover image
+                  </button>
+                )}
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) uploadCover.mutate(file)
+                    e.target.value = ''
+                  }}
+                />
+              </div>
+
               <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
               <Input label="Author" value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} />
               <div className="grid grid-cols-2 gap-3">
@@ -208,7 +350,7 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
                         <span className="text-sm text-gray-900 dark:text-white">
                           {shelves?.data.find(s => s.id === copyForm.shelfId)?.code ?? copyForm.shelfId}
                         </span>
-                        <button onClick={() => setCopyForm({ ...copyForm, shelfId: '', shelfSearch: '' })} className="text-gray-400 hover:text-gray-600">
+                        <button onClick={() => setCopyForm({ ...copyForm, shelfId: '', shelfSearch: '' })} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                           <X className="h-4 w-4" />
                         </button>
                       </div>
@@ -225,7 +367,7 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
                             {shelves.data.map((s) => (
                               <li key={s.id}>
                                 <button onClick={() => { setCopyForm({ ...copyForm, shelfId: s.id, shelfSearch: s.code }); setShelfQuery('') }}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700">
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700/40">
                                   <span className="font-mono font-medium text-gray-900 dark:text-white">{s.code}</span>
                                   <span className="text-gray-500 dark:text-gray-400">· {s.library?.name} · {s.genre}</span>
                                 </button>
@@ -258,6 +400,72 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
               )}
             </div>
           )}
+
+          {/* ── Loans ── */}
+          {tab === 'loans' && (
+            <div className="space-y-3">
+              {!bookLoans ? <PageSpinner /> : bookLoans.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No loans for this book.</p>
+              ) : bookLoans.map((loan: Loan) => (
+                <div key={loan.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{loan.user.firstName} {loan.user.lastName}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {loan.bookCopy.barcode} · Borrowed {new Date(loan.borrowedAt).toLocaleDateString()}
+                      {loan.returnedAt ? ` · Returned ${new Date(loan.returnedAt).toLocaleDateString()}` : ` · Due ${new Date(loan.dueDate).toLocaleDateString()}`}
+                    </p>
+                  </div>
+                  <LoanStatusBadge status={loan.status} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Reservations ── */}
+          {tab === 'reservations' && (
+            <div className="space-y-3">
+              {!bookReservations ? <PageSpinner /> : bookReservations.data.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">No reservations for this book.</p>
+              ) : bookReservations.data.map((r: Reservation) => (
+                <div key={r.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{r.user.firstName} {r.user.lastName}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Reserved {new Date(r.reservedAt).toLocaleDateString()}
+                      {r.expiresAt && ` · Expires ${new Date(r.expiresAt).toLocaleDateString()}`}
+                    </p>
+                  </div>
+                  <ReservationStatusBadge status={r.status} />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Delete Book ── */}
+          <div className="mt-8 border-t border-gray-100 pt-6 dark:border-gray-700">
+            {deleteConfirm ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-900/20">
+                <div className="flex items-center gap-2 text-sm font-medium text-red-700 dark:text-red-400">
+                  <AlertTriangle className="h-4 w-4" /> Delete this book?
+                </div>
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  {(copies?.length ?? 0) > 0
+                    ? `This book has ${copies!.length} cop${copies!.length === 1 ? 'y' : 'ies'}. Deleting will remove all copies, loans, and reservations.`
+                    : 'This action cannot be undone.'}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Button size="sm" variant="danger" onClick={() => deleteBook.mutate()} loading={deleteBook.isPending}>
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => setDeleteConfirm(false)}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={() => setDeleteConfirm(true)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                <Trash2 className="h-4 w-4" /> Delete book
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -301,7 +509,7 @@ function IsbnModal({ open, onClose }: { open: boolean; onClose: () => void }) {
                 <div className="mt-3">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Genre</label>
                   <select value={isbnGenre} onChange={(e) => setIsbnGenre(e.target.value as Genre)}
-                    className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                    className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
                     {GENRES.map((g) => <option key={g} value={g}>{g.replace('_', ' ')}</option>)}
                   </select>
                 </div>
@@ -320,10 +528,73 @@ function IsbnModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   )
 }
 
+// ── Manual Add Book Modal ────────────────────────────────────────────────────
+function ManualAddModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [form, setForm] = useState({
+    isbn: '', title: '', author: '', publisher: '', publishedYear: '',
+    genre: 'FICTION' as Genre, description: '', language: 'en',
+  })
+
+  const create = useMutation({
+    mutationFn: () => booksApi.create({
+      ...form,
+      publishedYear: form.publishedYear ? Number(form.publishedYear) : undefined,
+      publisher: form.publisher || undefined,
+      description: form.description || undefined,
+    } as any),
+    onSuccess: () => {
+      toast.success('Book added')
+      qc.invalidateQueries({ queryKey: ['books'] })
+      onClose()
+      setForm({ isbn: '', title: '', author: '', publisher: '', publishedYear: '', genre: 'FICTION', description: '', language: 'en' })
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  return (
+    <Modal open={open} onClose={onClose} title="Add Book Manually" size="lg">
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+          <Input label="Author" value={form.author} onChange={(e) => setForm({ ...form, author: e.target.value })} required />
+        </div>
+        <Input label="ISBN" value={form.isbn} onChange={(e) => setForm({ ...form, isbn: e.target.value })} required />
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Publisher" value={form.publisher} onChange={(e) => setForm({ ...form, publisher: e.target.value })} />
+          <Input label="Year" type="number" value={form.publishedYear} onChange={(e) => setForm({ ...form, publishedYear: e.target.value })} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Genre</label>
+            <select value={form.genre} onChange={(e) => setForm({ ...form, genre: e.target.value as Genre })}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+              {GENRES.map((g) => <option key={g} value={g}>{g.replace('_', ' ')}</option>)}
+            </select>
+          </div>
+          <Input label="Language" value={form.language} onChange={(e) => setForm({ ...form, language: e.target.value })} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+          <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3}
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={() => create.mutate()} loading={create.isPending} disabled={!form.title || !form.author || !form.isbn}>
+            Add Book
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function ManageBooksPage() {
   const [params, setParams] = useSearchParams()
   const [isbnOpen, setIsbnOpen] = useState(false)
+  const [manualAddOpen, setManualAddOpen] = useState(false)
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
   const page = Number(params.get('page') ?? 1)
   const search = params.get('search') ?? ''
@@ -337,7 +608,10 @@ export default function ManageBooksPage() {
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Books</h1>
-        <Button onClick={() => setIsbnOpen(true)}><Search className="h-4 w-4" /> Add by ISBN</Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setManualAddOpen(true)}><Plus className="h-4 w-4" /> Add Book</Button>
+          <Button onClick={() => setIsbnOpen(true)}><Search className="h-4 w-4" /> Add by ISBN</Button>
+        </div>
       </div>
 
       <div className="mb-4 relative">
@@ -385,6 +659,7 @@ export default function ManageBooksPage() {
       )}
 
       <IsbnModal open={isbnOpen} onClose={() => setIsbnOpen(false)} />
+      <ManualAddModal open={manualAddOpen} onClose={() => setManualAddOpen(false)} />
       {selectedBook && <BookDrawer book={selectedBook} onClose={() => setSelectedBook(null)} />}
     </div>
   )

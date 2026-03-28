@@ -2,7 +2,7 @@ import { api } from './client'
 import type { User, Loan, Reservation, PaginatedResponse } from '../types'
 
 export const usersApi = {
-  create: (data: { email: string; password: string; firstName: string; lastName: string; role?: string }) =>
+  create: (data: { email: string; firstName: string; lastName: string; role?: string }) =>
     api.post<User>('/users', data).then((r) => r.data),
 
   list: (params: { page?: number; limit?: number; role?: string; search?: string; isActive?: string } = {}) =>
@@ -12,6 +12,16 @@ export const usersApi = {
 
   update: (id: string, data: { role?: string; isActive?: boolean; firstName?: string; lastName?: string }) =>
     api.patch<User>(`/users/${id}`, data).then((r) => r.data),
+
+  setActive: (id: string, isActive: boolean, reason?: string) =>
+    api.patch<User>(`/users/${id}/active`, { isActive, reason }).then((r) => r.data),
+
+  revokeSessions: (id: string) => api.post(`/users/${id}/revoke-sessions`),
+
+  resetPassword: (id: string) =>
+    api.post<{ message: string }>(`/users/${id}/reset-password`).then((r) => r.data),
+
+  remove: (id: string) => api.delete(`/users/${id}`),
 
   loans: (id: string) => api.get<Loan[]>(`/users/${id}/loans`).then((r) => r.data),
 

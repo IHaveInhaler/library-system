@@ -22,7 +22,9 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: authApi.login,
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
+      // If 2FA is required, don't set auth — the LoginPage handles the challenge flow
+      if (data.requires2FA) return
       setAuth(data.user, data.accessToken, data.refreshToken)
       qc.setQueryData(['me'], data.user)
     },
@@ -34,8 +36,11 @@ export function useRegister() {
 
   return useMutation({
     mutationFn: authApi.register,
-    onSuccess: (data) => {
-      setAuth(data.user, data.accessToken, data.refreshToken)
+    onSuccess: (data: any) => {
+      // Only set auth if we got tokens (not pending email/approval)
+      if (data.accessToken) {
+        setAuth(data.user, data.accessToken, data.refreshToken)
+      }
     },
   })
 }

@@ -1,7 +1,18 @@
 import { prisma } from '../../lib/prisma'
-import { NotFoundError, BadRequestError } from '../../errors'
+import { NotFoundError, BadRequestError, ForbiddenError } from '../../errors'
 import { generateShelfLabel, ShelfPosition } from '../../lib/shelfLabel'
 import { CreateShelfInput, UpdateShelfInput, ShelfQueryInput } from './shelves.schemas'
+import { getAccessibleLibraryIds } from '../../lib/libraryAccess'
+import { hasPermission } from '../../lib/permissions'
+
+async function resolveAccess(userId?: string, userRole?: string) {
+  if (!userId || !userRole) return { canViewPublic: true, canViewAll: false }
+  const [canViewAll, canViewPublic] = await Promise.all([
+    hasPermission(userRole, 'VIEW_ALL_LIBRARIES'),
+    hasPermission(userRole, 'VIEW_LIBRARIES'),
+  ])
+  return { canViewPublic, canViewAll }
+}
 
 async function generateUniqueLabel(prefix: string, position: ShelfPosition): Promise<string> {
   // Retry until we get a label that doesn't already exist
@@ -13,11 +24,15 @@ async function generateUniqueLabel(prefix: string, position: ShelfPosition): Pro
   throw new Error('Could not generate a unique shelf label after 10 attempts')
 }
 
-export async function listShelves(query: ShelfQueryInput) {
+export async function listShelves(query: ShelfQueryInput, userId?: string, userRole?: string) {
   const { page, limit, libraryId, genre, position } = query
   const skip = (page - 1) * limit
 
+  const { canViewPublic, canViewAll } = await resolveAccess(userId, userRole)
+  const accessibleIds = await getAccessibleLibraryIds(userId, userRole, canViewPublic, canViewAll)
+
   const where = {
+    ...(accessibleIds && { libraryId: { in: accessibleIds } }),
     ...(libraryId && { libraryId }),
     ...(genre && { genre }),
     ...(position && { position }),
@@ -40,7 +55,7 @@ export async function listShelves(query: ShelfQueryInput) {
   return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } }
 }
 
-export async function getShelf(id: string) {
+export async function getShelf(id: string, userId?: string, userRole?: string) {
   const shelf = await prisma.shelf.findUnique({
     where: { id },
     include: {
@@ -49,6 +64,13 @@ export async function getShelf(id: string) {
     },
   })
   if (!shelf) throw new NotFoundError('Shelf')
+
+  const { canViewPublic, canViewAll } = await resolveAccess(userId, userRole)
+  const accessibleIds = await getAccessibleLibraryIds(userId, userRole, canViewPublic, canViewAll)
+  if (accessibleIds && !accessibleIds.includes(shelf.libraryId)) {
+    throw new ForbiddenError('You need a membership to access this library')
+  }
+
   return shelf
 }
 

@@ -75,7 +75,39 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* Recent books */}
+        {/* Libraries */}
+        {hasLibraries && (
+          <section>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Libraries</h2>
+              <Link to="/libraries" className="text-sm text-blue-600 hover:underline dark:text-blue-400">View all →</Link>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {libraries!.data.map((lib) => (
+                <Link key={lib.id} to={`/libraries/${lib.id}`} className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm hover:shadow-md transition dark:border-gray-700 dark:bg-gray-800">
+                  {lib.imageUrl && (
+                    <img
+                      src={lib.imageUrl}
+                      alt={lib.name}
+                      className="h-28 w-full object-cover border-b border-gray-200 dark:border-gray-700"
+                    />
+                  )}
+                  <div className="flex items-center gap-3 p-4">
+                    <div className="rounded-lg bg-blue-100 p-2.5 dark:bg-blue-900/40">
+                      <Library className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">{lib.name}</p>
+                      {lib.email && <p className="text-xs text-gray-500 dark:text-gray-400">{lib.email}</p>}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Books */}
         {hasBooks && (
           <section>
             <div className="mb-4 flex items-center justify-between">
@@ -94,29 +126,6 @@ export default function HomePage() {
                   )}
                   <p className="font-semibold text-sm text-gray-900 group-hover:text-blue-600 line-clamp-2 dark:text-white dark:group-hover:text-blue-400">{book.title}</p>
                   <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{book.author}</p>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Libraries */}
-        {hasLibraries && (
-          <section>
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Libraries</h2>
-              <Link to="/libraries" className="text-sm text-blue-600 hover:underline dark:text-blue-400">View all →</Link>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {libraries!.data.map((lib) => (
-                <Link key={lib.id} to={`/libraries/${lib.id}`} className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition dark:border-gray-700 dark:bg-gray-800">
-                  <div className="rounded-lg bg-blue-100 p-2.5 dark:bg-blue-900/40">
-                    <Library className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">{lib.name}</p>
-                    {lib.email && <p className="text-xs text-gray-500 dark:text-gray-400">{lib.email}</p>}
-                  </div>
                 </Link>
               ))}
             </div>

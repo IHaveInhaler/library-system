@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { BookOpen, Library, Users, ClipboardList, Bookmark } from 'lucide-react'
+import { BookOpen, Library, Users, ClipboardList, Bookmark, Tag } from 'lucide-react'
 import { booksApi } from '../../api/books'
 import { loansApi } from '../../api/loans'
 import { reservationsApi } from '../../api/reservations'
@@ -35,11 +35,12 @@ export default function ManagePage() {
     { icon: Library, label: 'Manage Libraries', href: '/manage/libraries' },
     { icon: ClipboardList, label: 'Loans', href: '/manage/loans' },
     { icon: Bookmark, label: 'Reservations', href: '/manage/reservations' },
+    { icon: Tag, label: 'Categories', href: '/manage/categories' },
     { icon: Users, label: 'Users', href: '/manage/users' },
   ]
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-8 text-2xl font-bold text-gray-900 dark:text-white">Manage</h1>
 
       <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

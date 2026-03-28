@@ -2,7 +2,7 @@ import { api } from './client'
 import type { Loan, PaginatedResponse } from '../types'
 
 export const loansApi = {
-  list: (params: { page?: number; limit?: number; status?: string; userId?: string } = {}) =>
+  list: (params: { page?: number; limit?: number; status?: string; userId?: string; bookCopyId?: string } = {}) =>
     api.get<PaginatedResponse<Loan>>('/loans', { params }).then((r) => r.data),
 
   get: (id: string) => api.get<Loan>(`/loans/${id}`).then((r) => r.data),
