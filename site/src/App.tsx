@@ -36,6 +36,8 @@ import LoansPage from './pages/admin/LoansPage'
 import ReservationsPage from './pages/admin/ReservationsPage'
 import UsersPage from './pages/admin/UsersPage'
 import CategoriesPage from './pages/admin/CategoriesPage'
+import ScanPage from './pages/admin/ScanPage'
+import BarcodesPage from './pages/admin/BarcodesPage'
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -112,6 +114,8 @@ function AppRoutes() {
               <Route path="/manage/reservations" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ReservationsPage /></ProtectedRoute>} />
               <Route path="/manage/users" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><UsersPage /></ProtectedRoute>} />
               <Route path="/manage/categories" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><CategoriesPage /></ProtectedRoute>} />
+              <Route path="/manage/scan" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ScanPage /></ProtectedRoute>} />
+              <Route path="/manage/barcodes" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><BarcodesPage /></ProtectedRoute>} />
 
               {/* Admin section — ADMIN only */}
               <Route path="/admin" element={<ProtectedRoute roles={['ADMIN']}><AdminPage /></ProtectedRoute>} />

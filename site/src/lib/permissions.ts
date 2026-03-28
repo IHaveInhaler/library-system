@@ -35,6 +35,7 @@ export const PERMISSIONS: PermissionInfo[] = [
   { key: 'MANAGE_COPIES', label: 'Manage Copies', description: 'Register, update condition/status, and delete book copies. Requires Staff access.', category: 'Books & Copies' },
   { key: 'CONFIGURE_BARCODES', label: 'Configure Barcodes', description: 'Edit barcode format templates for shelves and book copies.', category: 'Books & Copies' },
   { key: 'CREATE_BARCODES', label: 'Create Barcodes', description: 'Generate and print barcodes for shelves and book copies.', category: 'Books & Copies' },
+  { key: 'USE_SCANNER', label: 'Use Scanner', description: 'Access the barcode scanning page to scan shelves and copies.', category: 'Books & Copies' },
 
   // Loans
   { key: 'ISSUE_LOANS', label: 'Issue Loans', description: 'Issue new loans to members. Requires Staff access to the copy\'s library.', category: 'Loans' },

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { BookOpen, Library, Users, ClipboardList, Bookmark, Tag, Layers } from 'lucide-react'
+import { BookOpen, Library, Users, ClipboardList, Bookmark, Tag, Layers, Scan, Barcode } from 'lucide-react'
 import { booksApi } from '../../api/books'
 import { loansApi } from '../../api/loans'
 import { reservationsApi } from '../../api/reservations'
@@ -35,6 +35,8 @@ export default function ManagePage() {
     { icon: Layers, label: 'Shelves', description: 'Organise shelving by genre and location', href: '/manage/shelves' },
     { icon: BookOpen, label: 'Books', description: 'Catalogue, ISBN import, copies', href: '/manage/books' },
     { icon: Tag, label: 'Categories', description: 'Genres and classification', href: '/manage/categories' },
+    { icon: Barcode, label: 'Barcodes', description: 'View and print barcode labels', href: '/manage/barcodes' },
+    { icon: Scan, label: 'Scanner', description: 'Scan shelf and copy barcodes', href: '/manage/scan' },
   ]
 
   const serviceLinks = [

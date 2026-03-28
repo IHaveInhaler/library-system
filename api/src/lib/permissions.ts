@@ -36,9 +36,10 @@ export const PERMISSIONS = [
   'DELETE_USER',
   'RESET_USER_PASSWORD',
 
-  // Barcodes & Images
+  // Barcodes, Scanning & Images
   'CONFIGURE_BARCODES',
   'CREATE_BARCODES',
+  'USE_SCANNER',
   'CONFIGURE_IMAGES',
 
   // System
@@ -74,6 +75,7 @@ export const LIBRARIAN_DEFAULTS: Permission[] = [
   'MANAGE_USERS',
   'RESET_USER_PASSWORD',
   'CREATE_BARCODES',
+  'USE_SCANNER',
 ]
 
 let cache: Map<string, boolean> | null = null

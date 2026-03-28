@@ -23,6 +23,7 @@ import { getPublicSettings } from './modules/settings/settings.controller'
 import uploadRoutes from './lib/uploadRoutes'
 import membershipTypesRouter from './modules/membershipTypes/membershipTypes.router'
 import categoriesRouter from './modules/categories/categories.router'
+import barcodesRouter from './modules/barcodes/barcodes.router'
 import bookNotesRouter from './modules/bookNotes/bookNotes.router'
 import twoFactorRouter from './modules/twoFactor/twoFactor.router'
 import setupRouter from './modules/setup/setup.router'
@@ -93,6 +94,7 @@ export function createApp() {
   app.use('/api/permissions', permissionsRouter)
   app.use('/api/groups', groupsRouter)
   app.use('/api/categories', categoriesRouter)
+  app.use('/api/barcodes', barcodesRouter)
   app.use('/api/membership-types', membershipTypesRouter)
   app.use('/api/books', authenticate, bookNotesRouter) // book notes routes (nested under /books/:bookId/notes)
   app.use('/api/audit', authenticate, auditRouter)

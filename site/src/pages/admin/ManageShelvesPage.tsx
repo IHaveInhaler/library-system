@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Layers, Plus, Search, X, Trash2, MapPin, Settings2, BookOpen } from 'lucide-react'
+import { Layers, Plus, Search, X, Trash2, MapPin, Settings2, BookOpen, Printer } from 'lucide-react'
 import { shelvesApi } from '../../api/shelves'
 import { librariesApi } from '../../api/libraries'
 import { categoriesApi } from '../../api/categories'
@@ -303,7 +303,19 @@ function EditShelfDrawer({ shelf, onClose }: { shelf: Shelf; onClose: () => void
               <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
                 <p className="text-xs text-gray-400 dark:text-gray-500">Label: <span className="font-mono">{shelf.label}</span></p>
                 <p className="text-xs text-gray-400 dark:text-gray-500">Copies: {shelf._count?.bookCopies ?? 0}</p>
+                <div className="mt-2">
+                  <img src={`/api/barcodes/shelf/${encodeURIComponent(shelf.label)}`} alt={shelf.label} className="h-10 bg-white p-1 rounded" />
+                </div>
               </div>
+
+              <Button variant="secondary" size="sm" onClick={() => {
+                const w = window.open('', '_blank', 'width=400,height=300')
+                if (!w) return
+                w.document.write(`<html><head><title>Print ${shelf.label}</title><style>body{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;font-family:monospace}img{max-width:80%}p{margin-top:8px;font-size:14px}</style></head><body><img src="/api/barcodes/shelf/${encodeURIComponent(shelf.label)}" /><p>${shelf.label}</p><script>setTimeout(()=>{window.print();window.close()},500)</script></body></html>`)
+                w.document.close()
+              }}>
+                <Printer className="h-4 w-4" /> Print Label
+              </Button>
 
               <div className="border-t border-gray-100 pt-4 dark:border-gray-700">
                 <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700 dark:text-red-400"
