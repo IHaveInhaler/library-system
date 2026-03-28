@@ -264,13 +264,23 @@ export async function devSeed() {
 
   const books = []
   for (const { isbn, genre, fallback } of seedIsbns) {
-    let data: any
+    let data: any = null
     try {
       const meta = await fetchByIsbn(isbn)
-      data = meta ? { isbn: meta.isbn, title: meta.title, author: meta.author, publisher: meta.publisher, publishedYear: meta.publishedYear, genre, description: meta.description, coverUrl: meta.coverUrl, totalPages: meta.totalPages, language: meta.language } : null
-    } catch { data = null }
-    if (!data) data = { isbn, title: fallback.title, author: fallback.author, genre, language: 'en' }
-    books.push(await prisma.book.create({ data }))
+      if (meta) {
+        data = { isbn: meta.isbn, title: meta.title, author: meta.author, publisher: meta.publisher, publishedYear: meta.publishedYear, genre, description: meta.description, coverUrl: meta.coverUrl, totalPages: meta.totalPages, language: meta.language }
+      }
+    } catch (err) {
+      console.log(`[Dev seed] ISBN lookup failed for ${isbn}, using fallback: ${err instanceof Error ? err.message : 'unknown'}`)
+    }
+    if (!data) {
+      data = { isbn, title: fallback.title, author: fallback.author, genre, language: 'en' }
+    }
+    try {
+      books.push(await prisma.book.create({ data }))
+    } catch (err) {
+      console.log(`[Dev seed] Failed to create book ${isbn}: ${err instanceof Error ? err.message : 'unknown'}`)
+    }
   }
   const [book1, book2, book3] = books
 
