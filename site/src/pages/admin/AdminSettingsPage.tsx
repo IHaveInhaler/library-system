@@ -646,6 +646,11 @@ function TwoFactorSettings() {
           </button>
         </label>
 
+        <div className="flex gap-4 text-xs">
+          <a href="https://1password.com/blog/hardware-security-keys-explained" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline dark:text-blue-400">Learn about security keys →</a>
+          <a href="https://1password.com/blog/totp-and-1password#what-is-totp" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline dark:text-blue-400">What is TOTP? →</a>
+        </div>
+
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-400">
           When developer mode is enabled, 2FA requirements are bypassed.
         </div>

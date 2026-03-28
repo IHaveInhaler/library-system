@@ -191,7 +191,12 @@ function TwoFactorSection() {
 
             {/* TOTP subsection */}
             <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Authenticator App (TOTP)</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-900 dark:text-white">Authenticator App (TOTP)</h3>
+                <a href="https://1password.com/blog/totp-and-1password#what-is-totp" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline dark:text-blue-400">
+                  What is TOTP? →
+                </a>
+              </div>
 
               {status?.totpEnabled ? (
                 <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
