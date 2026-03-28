@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, BookOpen, ChevronDown, Search } from 'lucide-react'
+import { toast } from 'sonner'
+import { ArrowLeft, BookOpen, ChevronDown, Search, Share2 } from 'lucide-react'
 import { librariesApi } from '../../api/libraries'
 import { booksApi } from '../../api/books'
 import { PageSpinner } from '../../components/ui/Spinner'
 import { Badge } from '../../components/ui/Badge'
+import { Button } from '../../components/ui/Button'
 import type { Shelf } from '../../types'
 
 const positionLabel: Record<string, string> = { L: 'Left', M: 'Middle', R: 'Right' }
@@ -86,6 +88,13 @@ export default function LibraryDetailPage() {
     enabled: !!id,
   })
 
+  // Popular books at this library
+  const { data: popularBooks } = useQuery({
+    queryKey: ['books', 'library', id, 'popular'],
+    queryFn: () => booksApi.list({ libraryId: id!, limit: 6 }),
+    enabled: !!id,
+  })
+
   const { data: bookResults, isLoading: booksLoading } = useQuery({
     queryKey: ['books', 'library', id, shelfSearch],
     queryFn: () => booksApi.list({ libraryId: id!, search: shelfSearch, limit: 20 }),
@@ -113,10 +122,58 @@ export default function LibraryDetailPage() {
       </button>
 
       <div className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{library.name}</h1>
-        {library.email && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{library.email}</p>}
-        <p className="mt-2 font-mono text-xs text-gray-400 dark:text-gray-500">Label prefix: {library.labelPrefix}</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{library.name}</h1>
+            {library.email && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{library.email}</p>}
+            <p className="mt-2 font-mono text-xs text-gray-400 dark:text-gray-500">Prefix: {library.labelPrefix}</p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              const url = `${window.location.origin}/libraries/${library.labelPrefix.toLowerCase()}`
+              navigator.clipboard.writeText(url)
+              toast.success('Share link copied!')
+            }}
+          >
+            <Share2 className="h-3.5 w-3.5" /> Share
+          </Button>
+        </div>
       </div>
+
+      {/* Popular books */}
+      {popularBooks && popularBooks.data.length > 0 && (
+        <div className="mb-8">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Popular Books</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {popularBooks.data.map((book) => (
+              <Link
+                key={book.id}
+                to={`/books/${book.id}`}
+                className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+              >
+                {book.coverUrl ? (
+                  <img src={book.coverUrl} alt={book.title} className="h-16 w-11 flex-shrink-0 rounded-lg object-cover" />
+                ) : (
+                  <div className="flex h-16 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700">
+                    <BookOpen className="h-5 w-5 text-gray-300 dark:text-gray-500" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 group-hover:text-blue-600 line-clamp-1 dark:text-white dark:group-hover:text-blue-400">{book.title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">{book.author}</p>
+                  {book.availableCount !== undefined && (
+                    <p className={`mt-0.5 text-xs font-medium ${book.availableCount > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
+                      {book.availableCount > 0 ? `${book.availableCount} available` : 'Unavailable'}
+                    </p>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mb-4 flex items-center justify-between gap-4">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Shelves</h2>

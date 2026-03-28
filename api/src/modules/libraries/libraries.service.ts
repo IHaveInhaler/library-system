@@ -40,12 +40,20 @@ export async function listLibraries(query: LibraryQueryInput, userId?: string, u
   return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } }
 }
 
-export async function getLibrary(id: string, userId?: string, userRole?: string) {
-  const library = await prisma.library.findUnique({
-    where: { id },
+export async function getLibrary(idOrPrefix: string, userId?: string, userRole?: string) {
+  // Try by UUID first, then by labelPrefix (case-insensitive)
+  let library = await prisma.library.findUnique({
+    where: { id: idOrPrefix },
     include: { _count: { select: { shelves: true } } },
   })
+  if (!library) {
+    library = await prisma.library.findUnique({
+      where: { labelPrefix: idOrPrefix.toUpperCase() },
+      include: { _count: { select: { shelves: true } } },
+    })
+  }
   if (!library) throw new NotFoundError('Library')
+  const id = library.id
 
   const { canViewPublic, canViewAll } = await resolveAccess(userId, userRole)
   const accessibleIds = await getAccessibleLibraryIds(userId, userRole, canViewPublic, canViewAll)

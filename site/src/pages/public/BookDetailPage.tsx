@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, BookOpen, Bookmark, ChevronDown, MapPin, User } from 'lucide-react'
+import { ArrowLeft, BookOpen, Bookmark, ChevronDown, MapPin, Share2, User } from 'lucide-react'
 import { booksApi } from '../../api/books'
 import { loansApi } from '../../api/loans'
 import { reservationsApi } from '../../api/reservations'
@@ -102,6 +102,16 @@ export default function BookDetailPage() {
                 <Bookmark className="h-4 w-4" /> Reserve
               </Button>
             )}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href)
+                toast.success('Link copied!')
+              }}
+            >
+              <Share2 className="h-3.5 w-3.5" /> Share
+            </Button>
           </div>
         </div>
       </div>
