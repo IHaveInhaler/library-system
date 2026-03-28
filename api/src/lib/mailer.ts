@@ -3,14 +3,14 @@ import { getSettings } from './settings'
 
 const SMTP_KEYS = ['smtp.enabled', 'smtp.host', 'smtp.port', 'smtp.user', 'smtp.pass', 'smtp.from']
 
-export async function sendAccountCreatedEmail(to: string, setPasswordLink: string): Promise<void> {
+export async function sendAccountCreatedEmail(to: string, setPasswordLink: string, requires2FA = false): Promise<void> {
   const s = await getSettings(SMTP_KEYS)
 
   const enabled = s['smtp.enabled'] === 'true'
   const host = s['smtp.host']
 
   if (!enabled || !host) {
-    console.log(`[SMTP disabled] Set password link for ${to}: ${setPasswordLink}`)
+    console.log(`[SMTP disabled] Set password link for ${to}: ${setPasswordLink}${requires2FA ? ' (2FA setup required)' : ''}`)
     return
   }
 
@@ -27,11 +27,11 @@ export async function sendAccountCreatedEmail(to: string, setPasswordLink: strin
     from,
     to,
     subject: 'Your account has been created',
-    text: `An account has been created for you on Library Portal. Click the link below to set your password:\n\n${setPasswordLink}\n\nThis link expires in 24 hours.`,
+    text: `An account has been created for you on Library Portal. Click the link below to set your password:\n\n${setPasswordLink}\n\nThis link expires in 24 hours.${requires2FA ? '\n\nNote: Two-factor authentication is required for your role. You will be asked to set it up after logging in.' : ''}`,
     html: `<p>An account has been created for you on Library Portal.</p>
 <p>Click the link below to set your password:</p>
 <p><a href="${setPasswordLink}">${setPasswordLink}</a></p>
-<p>This link expires in 24 hours.</p>`,
+<p>This link expires in 24 hours.</p>${requires2FA ? '<p><strong>Note:</strong> Two-factor authentication is required for your role. You will be asked to set it up after logging in.</p>' : ''}`,
   })
 }
 

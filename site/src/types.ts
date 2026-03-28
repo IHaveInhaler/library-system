@@ -28,6 +28,7 @@ export interface User {
   deactivationReason?: string | null
   activationReason?: string | null
   staffLibraryIds?: string[] | null  // null = admin (all libraries), [] = none, [...] = specific
+  requires2FASetup?: boolean
   createdAt: string
   updatedAt: string
 }

@@ -238,6 +238,7 @@ export async function getMe(userId: string) {
       email: true,
       firstName: true,
       lastName: true,
+      avatarUrl: true,
       role: true,
       isActive: true,
       createdAt: true,
@@ -258,5 +259,27 @@ export async function getMe(userId: string) {
     staffLibraryIds = staffMemberships.map((m) => m.libraryId)
   }
 
-  return { ...user, staffLibraryIds }
+  // Check if 2FA setup is required for this user
+  let requires2FASetup = false
+  const devMode = (await getSetting('dev.enabled')) === 'true'
+  if (!devMode) {
+    const requiredRolesJson = await getSetting('2fa.requiredRoles')
+    if (requiredRolesJson) {
+      try {
+        const requiredRoles = JSON.parse(requiredRolesJson)
+        if (requiredRoles.includes(user.role)) {
+          const hasTOTP = await prisma.user.findUnique({ where: { id: userId }, select: { totpVerified: true } })
+          const keyCount = await prisma.securityKey.count({ where: { userId } })
+          const securityKeysOnly = (await getSetting('2fa.securityKeysOnly')) === 'true'
+          if (securityKeysOnly) {
+            requires2FASetup = keyCount === 0
+          } else {
+            requires2FASetup = !hasTOTP?.totpVerified && keyCount === 0
+          }
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  return { ...user, staffLibraryIds, requires2FASetup }
 }

@@ -25,12 +25,31 @@ export async function createUser(input: CreateUserInput) {
   const existing = await prisma.user.findUnique({ where: { email: input.email } })
   if (existing) throw new ConflictError('A user with that email already exists')
 
+  // Check if 2FA is forced for this role
+  const devMode = (await getSetting('dev.enabled')) === 'true'
+  let requires2FASetup = false
+  if (!devMode) {
+    const requiredRolesJson = await getSetting('2fa.requiredRoles')
+    if (requiredRolesJson) {
+      try {
+        const requiredRoles = JSON.parse(requiredRolesJson)
+        requires2FASetup = requiredRoles.includes(input.role)
+      } catch { /* ignore */ }
+    }
+  }
+
   // Create with a random unusable password — user will set their own via the invite link
   const placeholder = crypto.randomBytes(32).toString('hex')
   const passwordHash = await hashPassword(placeholder)
 
   const user = await prisma.user.create({
-    data: { email: input.email, passwordHash, firstName: input.firstName, lastName: input.lastName, role: input.role },
+    data: {
+      email: input.email,
+      passwordHash,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      role: input.role,
+    },
     select: safeSelect,
   })
 
@@ -42,7 +61,7 @@ export async function createUser(input: CreateUserInput) {
   const baseUrl = (await getSetting('app.baseUrl')) || process.env.CORS_ORIGIN || 'http://localhost:5173'
   const setPasswordLink = `${baseUrl}/reset-password?token=${token}`
 
-  await sendAccountCreatedEmail(user.email, setPasswordLink)
+  await sendAccountCreatedEmail(user.email, setPasswordLink, requires2FASetup)
 
   return user
 }

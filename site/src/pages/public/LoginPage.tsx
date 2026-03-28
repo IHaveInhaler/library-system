@@ -141,6 +141,9 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 dark:bg-gray-950">
       <div className="w-full max-w-sm">
+        <Link to="/" className="mb-6 flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </Link>
         <div className="mb-8 flex flex-col items-center gap-2 text-center">
           <div className={`rounded-xl p-3 ${showTotpInput ? 'bg-amber-500' : 'bg-blue-600'}`}>
             {showTotpInput
