@@ -28,6 +28,12 @@ import setupRouter from './modules/setup/setup.router'
 export function createApp() {
   const app = express()
 
+  // Trust proxy headers when behind a reverse proxy (nginx, Cloudflare, etc.)
+  // This can also be set via the TRUST_PROXY env var
+  if (process.env.TRUST_PROXY === 'true') {
+    app.set('trust proxy', true)
+  }
+
   app.use(cors({ origin: env.CORS_ORIGIN }))
   app.use(express.json())
 

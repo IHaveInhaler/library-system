@@ -100,7 +100,7 @@ function SmtpSettings() {
         <div>
           <h2 className="font-semibold text-gray-900 dark:text-white">Email / SMTP</h2>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Used for password reset emails. If disabled, reset links are logged to the console.
+            Used for password resets, account invites, email verification, and notifications. If disabled, links and codes are logged to the server console.
             {locked.length > 0 && (
               <span className="ml-1">Fields marked <span className="font-medium text-amber-600 dark:text-amber-400">env</span> are set via environment variables and cannot be edited here.</span>
             )}
@@ -159,16 +159,20 @@ function GeneralSettings() {
   const qc = useQueryClient()
   const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
   const [baseUrl, setBaseUrl] = useState('')
+  const [behindProxy, setBehindProxy] = useState(false)
 
   useEffect(() => {
-    if (data) setBaseUrl(data.settings['app.baseUrl'] || '')
+    if (data) {
+      setBaseUrl(data.settings['app.baseUrl'] || '')
+      setBehindProxy(data.settings['app.behindProxy'] === 'true')
+    }
   }, [data])
 
   const locked = data?.locked ?? []
   const isLocked = locked.includes('app.baseUrl' as SettingKey)
 
   const save = useMutation({
-    mutationFn: () => settingsApi.update({ 'app.baseUrl': baseUrl }),
+    mutationFn: () => settingsApi.update({ 'app.baseUrl': baseUrl, 'app.behindProxy': behindProxy ? 'true' : 'false' }),
     onSuccess: (res) => { toast.success('Settings saved'); qc.setQueryData(['settings'], res) },
     onError: (err) => toast.error(extractError(err)),
   })
@@ -207,11 +211,28 @@ function GeneralSettings() {
             Used for password reset links, account invite emails, and other outbound URLs.
           </p>
         </div>
-        {!isLocked && (
-          <div className="flex justify-end">
-            <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
+
+        <label className="flex items-center justify-between cursor-pointer rounded-lg border border-gray-100 px-4 py-3 dark:border-gray-700">
+          <div>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Behind reverse proxy</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              Enable if the site is behind nginx, Caddy, Cloudflare, or another reverse proxy. Ensures correct IP forwarding and URL generation.
+            </p>
           </div>
-        )}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={behindProxy}
+            onClick={() => setBehindProxy(!behindProxy)}
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${behindProxy ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'}`}
+          >
+            <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${behindProxy ? 'translate-x-5' : 'translate-x-0'}`} />
+          </button>
+        </label>
+
+        <div className="flex justify-end">
+          <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
+        </div>
       </div>
     </div>
   )
@@ -613,7 +634,9 @@ function TwoFactorSettings() {
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600"
                 />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{group.name}</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {group.name.charAt(0) + group.name.slice(1).toLowerCase().replace(/_/g, ' ')}
+                  </p>
                   {group.description && (
                     <p className="text-xs text-gray-400 dark:text-gray-500">{group.description}</p>
                   )}

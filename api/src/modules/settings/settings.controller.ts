@@ -10,6 +10,7 @@ const ALLOWED_KEYS = [
   'smtp.pass',
   'smtp.from',
   'app.baseUrl',
+  'app.behindProxy',
   'reg.mode',
   'reg.allowedDomain',
   'reg.token',
