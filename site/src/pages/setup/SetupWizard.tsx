@@ -342,10 +342,11 @@ function LibraryStep({
 }) {
   const [form, setForm] = useState({ name: '', labelPrefix: '', email: '', isPrivate: false })
   const [loading, setLoading] = useState(false)
+  const prefixError = form.labelPrefix.length > 0 && form.labelPrefix.length > 3 ? 'Prefix must be 3 letters or less' : ''
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name || !form.labelPrefix) return
+    if (!form.name || !form.labelPrefix || prefixError) return
     setLoading(true)
     try {
       const lib = await librariesApi.create({
@@ -424,10 +425,11 @@ function LibraryStep({
           <Input
             label="Prefix"
             value={form.labelPrefix}
-            onChange={(e) => setForm({ ...form, labelPrefix: e.target.value.toUpperCase().slice(0, 4) })}
+            onChange={(e) => setForm({ ...form, labelPrefix: e.target.value.toUpperCase().slice(0, 3) })}
             placeholder="CEN"
-            maxLength={4}
+            maxLength={3}
             required
+            error={prefixError}
           />
         </div>
         <Input

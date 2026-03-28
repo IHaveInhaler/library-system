@@ -27,10 +27,18 @@ export const useBrandStore = create<BrandState>((set) => ({
         loaded: true,
       })
 
-      // Apply primary color as CSS variable
+      // Apply primary color as CSS variables
       const color = settings['brand.primaryColor']
       if (color) {
         document.documentElement.style.setProperty('--color-primary', color)
+        // Compute a darker shade for hover states
+        const darken = (hex: string) => {
+          const r = Math.max(0, parseInt(hex.slice(1, 3), 16) - 25)
+          const g = Math.max(0, parseInt(hex.slice(3, 5), 16) - 25)
+          const b = Math.max(0, parseInt(hex.slice(5, 7), 16) - 25)
+          return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+        }
+        document.documentElement.style.setProperty('--color-primary-dark', darken(color))
       }
 
       // Apply favicon

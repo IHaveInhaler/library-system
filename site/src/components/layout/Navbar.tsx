@@ -77,13 +77,15 @@ export function Navbar() {
                 <LogOut className="h-4 w-4" />
                 Sign out
               </button>
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.firstName} className="h-7 w-7 rounded-full object-cover" />
-              ) : (
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                  {user.firstName[0]}{user.lastName?.[0] ?? ''}
-                </span>
-              )}
+              <Link to="/profile" title="Profile & Security">
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user.firstName} className="h-7 w-7 rounded-full object-cover hover:ring-2 hover:ring-blue-500" />
+                ) : (
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 hover:ring-2 hover:ring-blue-500 dark:bg-blue-900 dark:text-blue-300">
+                    {user.firstName[0]}{user.lastName?.[0] ?? ''}
+                  </span>
+                )}
+              </Link>
             </>
           ) : (
             <>
