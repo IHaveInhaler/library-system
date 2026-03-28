@@ -215,8 +215,8 @@ export async function devSeed() {
   }
 
   const [centralLib, westLib] = await Promise.all([
-    prisma.library.create({ data: { name: 'Central City Library', labelPrefix: 'CEN', email: 'central@library.com', isPrivate: true } }),
-    prisma.library.create({ data: { name: 'West Branch Library', labelPrefix: 'WST', email: 'west@library.com', isPrivate: true } }),
+    prisma.library.create({ data: { name: 'Central City Library', labelPrefix: 'CEN', email: 'central@library.com', isPrivate: false } }),
+    prisma.library.create({ data: { name: 'West Branch Library', labelPrefix: 'WST', email: 'west@library.com', isPrivate: false } }),
   ])
 
   const monthEnd = new Date()
