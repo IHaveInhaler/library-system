@@ -48,7 +48,10 @@ function ManagePositionsModal({ open, onClose }: { open: boolean; onClose: () =>
   useEffect(() => { setItems(positions) }, [open])
 
   const save = useMutation({
-    mutationFn: () => settingsApi.update({ 'shelf.positions': JSON.stringify(items) }),
+    mutationFn: () => {
+      if (items.length === 0) { toast.error('Must have at least one position'); return Promise.reject() }
+      return settingsApi.update({ 'shelf.positions': JSON.stringify(items) })
+    },
     onSuccess: (res) => { toast.success('Positions saved'); qc.setQueryData(['settings'], res); qc.invalidateQueries({ queryKey: ['shelves'] }) },
     onError: (err) => toast.error(extractError(err)),
   })
@@ -74,6 +77,7 @@ function ManagePositionsModal({ open, onClose }: { open: boolean; onClose: () =>
   }
 
   const removePosition = (code: string) => {
+    if (items.length <= 1) { toast.error('Must have at least one position'); return }
     setMigrateFrom(code)
     setShowMigrate(true)
   }
@@ -102,9 +106,11 @@ function ManagePositionsModal({ open, onClose }: { open: boolean; onClose: () =>
                 <span className="rounded bg-gray-100 px-2 py-0.5 font-mono text-xs font-bold text-gray-700 dark:bg-gray-700 dark:text-gray-300">{p.code}</span>
                 <span className="text-sm text-gray-900 dark:text-white">{p.label}</span>
               </div>
-              <button onClick={() => removePosition(p.code)} className="text-gray-400 hover:text-red-500 dark:hover:text-red-400">
-                <Trash2 className="h-4 w-4" />
-              </button>
+              {items.length > 1 && (
+                <button onClick={() => removePosition(p.code)} className="text-gray-400 hover:text-red-500 dark:hover:text-red-400">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
             </div>
           ))}
         </div>
