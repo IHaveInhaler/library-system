@@ -4,7 +4,7 @@ import { CopyStatus } from '../../types'
 const Condition = z.enum(['GOOD', 'FAIR', 'POOR'])
 
 export const createBookCopySchema = z.object({
-  barcode: z.string().min(1).max(100),
+  barcode: z.string().max(100).optional(),
   condition: Condition.default('GOOD'),
   bookId: z.string().uuid(),
   shelfId: z.string().uuid(),
