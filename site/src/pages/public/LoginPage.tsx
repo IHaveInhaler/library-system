@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
-import { BookOpen, ShieldCheck, ArrowLeft } from 'lucide-react'
+import { BookOpen, ShieldCheck, ArrowLeft, Key } from 'lucide-react'
 import { useLogin } from '../../hooks/useAuth'
 import { useAuthStore } from '../../store/auth'
 import { useQueryClient } from '@tanstack/react-query'
@@ -38,9 +38,12 @@ export default function LoginPage() {
 
   // 2FA state
   const [pendingUserId, setPendingUserId] = useState<string | null>(null)
+  const [availableMethods, setAvailableMethods] = useState<string[]>([])
   const [showTotpInput, setShowTotpInput] = useState(false)
+  const [_showKeyPrompt, setShowKeyPrompt] = useState(false)
   const [totpCode, setTotpCode] = useState('')
   const [totpLoading, setTotpLoading] = useState(false)
+  const [keyLoading, setKeyLoading] = useState(false)
   const totpInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -60,11 +63,43 @@ export default function LoginPage() {
   const handleLoginResult = (data: any) => {
     if (data.requires2FA) {
       setPendingUserId(data.userId)
-      setShowTotpInput(true)
+      setAvailableMethods(data.methods || [])
+      // If only one method, go straight to it
+      if (data.methods?.length === 1 && data.methods[0] === 'totp') {
+        setShowTotpInput(true)
+      } else if (data.methods?.length === 1 && data.methods[0] === 'securityKey') {
+        handleSecurityKeyAuth(data.userId)
+      } else {
+        // Show method picker
+        setShowTotpInput(true) // Default to TOTP picker, with option to switch
+      }
       setTotpCode('')
       return true
     }
     return false
+  }
+
+  const handleSecurityKeyAuth = async (userId: string) => {
+    setKeyLoading(true)
+    setShowKeyPrompt(true)
+    try {
+      const { startAuthentication } = await import('@simplewebauthn/browser')
+      const options = await twoFactorApi.securityKeyAuthOptions(userId)
+      const assertion = await startAuthentication({ optionsJSON: options })
+      const result = await twoFactorApi.challenge({ userId, method: 'securityKey', assertion })
+      setAuth(result.user, result.accessToken, result.refreshToken)
+      qc.setQueryData(['me'], result.user)
+      navigate(from, { replace: true })
+    } catch (err: any) {
+      if (err?.name === 'NotAllowedError') {
+        toast.error('Authentication cancelled or timed out')
+      } else {
+        toast.error(extractError(err))
+      }
+      setShowKeyPrompt(false)
+    } finally {
+      setKeyLoading(false)
+    }
   }
 
   const onSubmit = async (data: FormData) => {
@@ -97,7 +132,9 @@ export default function LoginPage() {
 
   const resetTotpState = () => {
     setPendingUserId(null)
+    setAvailableMethods([])
     setShowTotpInput(false)
+    setShowKeyPrompt(false)
     setTotpCode('')
   }
 
@@ -156,6 +193,17 @@ export default function LoginPage() {
             >
               Verify
             </Button>
+            {availableMethods.includes('securityKey') && (
+              <button
+                type="button"
+                onClick={() => { setShowTotpInput(false); handleSecurityKeyAuth(pendingUserId!) }}
+                disabled={keyLoading}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                <Key className="h-4 w-4" />
+                {keyLoading ? 'Waiting for key...' : 'Use security key instead'}
+              </button>
+            )}
             <button
               type="button"
               onClick={resetTotpState}

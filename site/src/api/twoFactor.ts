@@ -32,7 +32,17 @@ export const twoFactorApi = {
   securityKeys: () => api.get<SecurityKeyInfo[]>('/auth/2fa/security-keys').then((r) => r.data),
   removeSecurityKey: (id: string) => api.delete(`/auth/2fa/security-key/${id}`).then((r) => r.data),
 
+  // Security key registration
+  securityKeyRegisterOptions: () =>
+    api.post('/auth/2fa/security-key/register-options').then((r) => r.data),
+  securityKeyRegisterVerify: (attestation: any, name: string) =>
+    api.post('/auth/2fa/security-key/register-verify', { attestation, name }).then((r) => r.data),
+
+  // Security key authentication (during login)
+  securityKeyAuthOptions: (userId: string) =>
+    api.post('/auth/2fa/security-key/auth-options', { userId }).then((r) => r.data),
+
   // Challenge (during login)
-  challenge: (data: { userId: string; method: string; code?: string }) =>
+  challenge: (data: { userId: string; method: string; code?: string; assertion?: any }) =>
     api.post<AuthResponse>('/auth/2fa/challenge', data).then((r) => r.data),
 }
