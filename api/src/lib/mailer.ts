@@ -96,3 +96,48 @@ export async function sendPasswordResetEmail(to: string, resetLink: string): Pro
 <p>This link expires in 1 hour. If you did not request this, ignore this email.</p>`,
   })
 }
+
+export async function sendShelfMigrationReport(
+  to: string,
+  fromPosition: string,
+  toPosition: string,
+  changes: { code: string; oldLabel: string; newLabel: string; library: string }[]
+): Promise<void> {
+  const s = await getSettings(SMTP_KEYS)
+  const enabled = s['smtp.enabled'] === 'true'
+  const host = s['smtp.host']
+
+  const changeLines = changes.map((c) => `  ${c.library} / ${c.code}: ${c.oldLabel} → ${c.newLabel}`)
+  const summary = `Shelf position migration: ${fromPosition} → ${toPosition}\n${changes.length} shelf(s) updated:\n\n${changeLines.join('\n')}\n\nPlease reprint the following labels:\n${changes.map((c) => `  NEW: ${c.newLabel}  (was: ${c.oldLabel})`).join('\n')}`
+
+  if (!enabled || !host) {
+    console.log(`[SMTP disabled] Shelf migration report:\n${summary}`)
+    return
+  }
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port: parseInt(s['smtp.port'] ?? '587', 10),
+    secure: parseInt(s['smtp.port'] ?? '587', 10) === 465,
+    auth: s['smtp.user'] ? { user: s['smtp.user'], pass: s['smtp.pass'] ?? '' } : undefined,
+  })
+
+  const from = s['smtp.from'] || `noreply@${host}`
+  const htmlRows = changes.map((c) =>
+    `<tr><td style="padding:4px 8px;border:1px solid #e5e7eb">${c.library}</td><td style="padding:4px 8px;border:1px solid #e5e7eb">${c.code}</td><td style="padding:4px 8px;border:1px solid #e5e7eb;text-decoration:line-through;color:#9ca3af">${c.oldLabel}</td><td style="padding:4px 8px;border:1px solid #e5e7eb;font-weight:bold">${c.newLabel}</td></tr>`
+  ).join('')
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: `Shelf Migration: ${fromPosition} → ${toPosition} (${changes.length} shelves)`,
+    text: summary,
+    html: `<h2>Shelf Position Migration</h2>
+<p><strong>${fromPosition}</strong> → <strong>${toPosition}</strong> — ${changes.length} shelf(s) updated.</p>
+<table style="border-collapse:collapse;margin:16px 0">
+<thead><tr style="background:#f3f4f6"><th style="padding:6px 8px;border:1px solid #e5e7eb;text-align:left">Library</th><th style="padding:6px 8px;border:1px solid #e5e7eb;text-align:left">Shelf</th><th style="padding:6px 8px;border:1px solid #e5e7eb;text-align:left">Old Label</th><th style="padding:6px 8px;border:1px solid #e5e7eb;text-align:left">New Label</th></tr></thead>
+<tbody>${htmlRows}</tbody>
+</table>
+<p><strong>Action required:</strong> Please reprint labels for the shelves listed above.</p>`,
+  })
+}

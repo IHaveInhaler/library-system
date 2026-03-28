@@ -1,6 +1,8 @@
 import { prisma } from '../../lib/prisma'
 import { NotFoundError, BadRequestError, ForbiddenError } from '../../errors'
 import { generateShelfLabel, ShelfPosition } from '../../lib/shelfLabel'
+import { sendShelfMigrationReport } from '../../lib/mailer'
+import { getSetting } from '../../lib/settings'
 import { CreateShelfInput, UpdateShelfInput, ShelfQueryInput } from './shelves.schemas'
 import { getAccessibleLibraryIds } from '../../lib/libraryAccess'
 import { hasPermission } from '../../lib/permissions'
@@ -143,6 +145,15 @@ export async function migratePosition(fromPosition: string, toPosition: string) 
       newLabel,
       library: shelf.library.labelPrefix,
     })
+  }
+
+  // Email the migration report
+  try {
+    const smtpFrom = await getSetting('smtp.from')
+    const recipient = smtpFrom || 'admin'
+    await sendShelfMigrationReport(recipient, fromPosition, toPosition, changes)
+  } catch {
+    // Migration succeeded even if email fails — changes are logged to console as fallback
   }
 
   return { migrated: changes.length, changes }
