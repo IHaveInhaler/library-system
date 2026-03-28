@@ -418,6 +418,91 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
                   <LoanStatusBadge status={loan.status} />
                 </div>
               ))}
+
+              {/* Issue Loan */}
+              {showIssueLoan ? (
+                <div className="space-y-3 rounded-lg border border-dashed border-gray-300 p-4 dark:border-gray-600">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">Issue Loan</p>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Copy</label>
+                    <select
+                      value={loanForm.bookCopyId}
+                      onChange={(e) => setLoanForm({ ...loanForm, bookCopyId: e.target.value })}
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="">Select a copy...</option>
+                      {availableCopies?.map((c) => (
+                        <option key={c.id} value={c.id}>{c.barcode} — {c.shelf?.library?.name} · {c.shelf?.code}</option>
+                      ))}
+                    </select>
+                    {availableCopies && availableCopies.length === 0 && (
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400">No available copies.</p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">User</label>
+                    {loanForm.userId ? (
+                      <div className="flex items-center justify-between rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 dark:border-blue-700 dark:bg-blue-900/20">
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {loanUserResults?.data.find((u) => u.id === loanForm.userId)?.firstName}{' '}
+                          {loanUserResults?.data.find((u) => u.id === loanForm.userId)?.lastName}
+                        </span>
+                        <button onClick={() => { setLoanForm({ ...loanForm, userId: '' }); setLoanUserSearch('') }}
+                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <input
+                          value={loanUserSearch}
+                          onChange={(e) => setLoanUserSearch(e.target.value)}
+                          placeholder="Search users..."
+                          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        />
+                        {loanUserResults && loanUserResults.data.length > 0 && loanUserSearch.length >= 2 && (
+                          <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                            {loanUserResults.data.map((u: User) => (
+                              <li key={u.id}>
+                                <button
+                                  onClick={() => { setLoanForm({ ...loanForm, userId: u.id }); setLoanUserSearch(`${u.firstName} ${u.lastName}`) }}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                                >
+                                  <span className="font-medium text-gray-900 dark:text-white">{u.firstName} {u.lastName}</span>
+                                  <span className="text-gray-500 dark:text-gray-400">· {u.email}</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <Input
+                    label="Due Date"
+                    type="date"
+                    value={loanForm.dueDate}
+                    onChange={(e) => setLoanForm({ ...loanForm, dueDate: e.target.value })}
+                  />
+
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => issueLoan.mutate()} loading={issueLoan.isPending}
+                      disabled={!loanForm.bookCopyId || !loanForm.userId || !loanForm.dueDate}>
+                      Issue Loan
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => { setShowIssueLoan(false); setLoanForm({ bookCopyId: '', userId: '', dueDate: '' }); setLoanUserSearch('') }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="secondary" onClick={() => setShowIssueLoan(true)}>
+                  <Plus className="h-4 w-4" /> Issue Loan
+                </Button>
+              )}
             </div>
           )}
 
@@ -438,6 +523,78 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
                   <ReservationStatusBadge status={r.status} />
                 </div>
               ))}
+
+              {/* Make Reservation */}
+              {showMakeReservation ? (
+                <div className="space-y-3 rounded-lg border border-dashed border-gray-300 p-4 dark:border-gray-600">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">Make Reservation</p>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">User</label>
+                    {reservationForm.userId ? (
+                      <div className="flex items-center justify-between rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 dark:border-blue-700 dark:bg-blue-900/20">
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {reservationUserResults?.data.find((u) => u.id === reservationForm.userId)?.firstName}{' '}
+                          {reservationUserResults?.data.find((u) => u.id === reservationForm.userId)?.lastName}
+                        </span>
+                        <button onClick={() => { setReservationForm({ ...reservationForm, userId: '' }); setReservationUserSearch('') }}
+                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <input
+                          value={reservationUserSearch}
+                          onChange={(e) => setReservationUserSearch(e.target.value)}
+                          placeholder="Search users..."
+                          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                        />
+                        {reservationUserResults && reservationUserResults.data.length > 0 && reservationUserSearch.length >= 2 && (
+                          <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                            {reservationUserResults.data.map((u: User) => (
+                              <li key={u.id}>
+                                <button
+                                  onClick={() => { setReservationForm({ ...reservationForm, userId: u.id }); setReservationUserSearch(`${u.firstName} ${u.lastName}`) }}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                                >
+                                  <span className="font-medium text-gray-900 dark:text-white">{u.firstName} {u.lastName}</span>
+                                  <span className="text-gray-500 dark:text-gray-400">· {u.email}</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
+                    <textarea
+                      value={reservationForm.notes}
+                      onChange={(e) => setReservationForm({ ...reservationForm, notes: e.target.value })}
+                      rows={2}
+                      placeholder="Optional notes..."
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => makeReservation.mutate()} loading={makeReservation.isPending}
+                      disabled={!reservationForm.userId}>
+                      Make Reservation
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => { setShowMakeReservation(false); setReservationForm({ userId: '', notes: '' }); setReservationUserSearch('') }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="secondary" onClick={() => setShowMakeReservation(true)}>
+                  <Plus className="h-4 w-4" /> Make Reservation
+                </Button>
+              )}
             </div>
           )}
 
@@ -477,22 +634,61 @@ function IsbnModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient()
   const [isbn, setIsbn] = useState('')
   const [isbnResult, setIsbnResult] = useState<any>(null)
-  const [isbnGenre, setIsbnGenre] = useState<Genre>('OTHER')
+  const [isbnForm, setIsbnForm] = useState({
+    title: '', author: '', publisher: '', publishedYear: '',
+    genre: 'OTHER' as Genre, description: '', language: 'en',
+  })
 
   const lookupIsbn = useMutation({
     mutationFn: () => booksApi.lookupIsbn(isbn),
-    onSuccess: (d) => { setIsbnResult(d); if (d.book.genre) setIsbnGenre(d.book.genre as Genre) },
+    onSuccess: (d) => {
+      setIsbnResult(d)
+      if (!d.alreadyExists) {
+        setIsbnForm({
+          title: d.book.title ?? '',
+          author: d.book.author ?? '',
+          publisher: d.book.publisher ?? '',
+          publishedYear: d.book.publishedYear?.toString() ?? '',
+          genre: (d.book.genre as Genre) ?? 'OTHER',
+          description: d.book.description ?? '',
+          language: d.book.language ?? 'en',
+        })
+      }
+    },
     onError: (err) => toast.error(extractError(err)),
   })
 
   const addFromIsbn = useMutation({
-    mutationFn: () => booksApi.createFromIsbn({ isbn, genre: isbnGenre }),
-    onSuccess: () => { toast.success('Book added'); onClose(); setIsbn(''); setIsbnResult(null); qc.invalidateQueries({ queryKey: ['books'] }) },
+    mutationFn: () => booksApi.createFromIsbn({
+      isbn,
+      genre: isbnForm.genre,
+      title: isbnForm.title || undefined,
+      author: isbnForm.author || undefined,
+      publisher: isbnForm.publisher || undefined,
+      publishedYear: isbnForm.publishedYear ? Number(isbnForm.publishedYear) : undefined,
+      description: isbnForm.description || undefined,
+      language: isbnForm.language || undefined,
+    }),
+    onSuccess: () => {
+      toast.success('Book added')
+      onClose()
+      setIsbn('')
+      setIsbnResult(null)
+      setIsbnForm({ title: '', author: '', publisher: '', publishedYear: '', genre: 'OTHER', description: '', language: 'en' })
+      qc.invalidateQueries({ queryKey: ['books'] })
+    },
     onError: (err) => toast.error(extractError(err)),
   })
 
+  const handleClose = () => {
+    onClose()
+    setIsbnResult(null)
+    setIsbn('')
+    setIsbnForm({ title: '', author: '', publisher: '', publishedYear: '', genre: 'OTHER', description: '', language: 'en' })
+  }
+
   return (
-    <Modal open={open} onClose={() => { onClose(); setIsbnResult(null); setIsbn('') }} title="Add Book by ISBN">
+    <Modal open={open} onClose={handleClose} title="Add Book by ISBN" size="lg">
       <div className="space-y-4">
         <div className="flex gap-2">
           <Input className="flex-1" placeholder="e.g. 9780743273565" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
@@ -501,26 +697,46 @@ function IsbnModal({ open, onClose }: { open: boolean; onClose: () => void }) {
         {isbnResult && (
           <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
             {isbnResult.alreadyExists ? (
-              <p className="text-sm text-yellow-700 dark:text-yellow-400">⚠ This book already exists in the catalogue.</p>
+              <p className="text-sm text-yellow-700 dark:text-yellow-400">This book already exists in the catalogue.</p>
             ) : (
-              <>
-                <p className="font-semibold text-gray-900 dark:text-white">{isbnResult.book.title}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{isbnResult.book.author}</p>
-                <div className="mt-3">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Genre</label>
-                  <select value={isbnGenre} onChange={(e) => setIsbnGenre(e.target.value as Genre)}
-                    className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-                    {GENRES.map((g) => <option key={g} value={g}>{g.replace('_', ' ')}</option>)}
-                  </select>
+              <div className="space-y-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Found via {isbnResult.source} — edit fields before adding
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="Title" value={isbnForm.title} onChange={(e) => setIsbnForm({ ...isbnForm, title: e.target.value })} required />
+                  <Input label="Author" value={isbnForm.author} onChange={(e) => setIsbnForm({ ...isbnForm, author: e.target.value })} required />
                 </div>
-              </>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="Publisher" value={isbnForm.publisher} onChange={(e) => setIsbnForm({ ...isbnForm, publisher: e.target.value })} />
+                  <Input label="Year" type="number" value={isbnForm.publishedYear} onChange={(e) => setIsbnForm({ ...isbnForm, publishedYear: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Genre</label>
+                    <select value={isbnForm.genre} onChange={(e) => setIsbnForm({ ...isbnForm, genre: e.target.value as Genre })}
+                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                      {GENRES.map((g) => <option key={g} value={g}>{g.replace('_', ' ')}</option>)}
+                    </select>
+                  </div>
+                  <Input label="Language" value={isbnForm.language} onChange={(e) => setIsbnForm({ ...isbnForm, language: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
+                  <textarea value={isbnForm.description} onChange={(e) => setIsbnForm({ ...isbnForm, description: e.target.value })} rows={3}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                </div>
+              </div>
             )}
           </div>
         )}
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => { onClose(); setIsbnResult(null); setIsbn('') }}>Cancel</Button>
+          <Button variant="secondary" onClick={handleClose}>Cancel</Button>
           {isbnResult && !isbnResult.alreadyExists && (
-            <Button onClick={() => addFromIsbn.mutate()} loading={addFromIsbn.isPending}>Add to Catalogue</Button>
+            <Button onClick={() => addFromIsbn.mutate()} loading={addFromIsbn.isPending}
+              disabled={!isbnForm.title || !isbnForm.author}>
+              Add to Catalogue
+            </Button>
           )}
         </div>
       </div>

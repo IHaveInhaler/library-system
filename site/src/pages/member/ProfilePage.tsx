@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { startRegistration } from '@simplewebauthn/browser'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { User as UserIcon, Shield, Key, Camera, Trash2, AlertTriangle, CheckCircle2, Copy } from 'lucide-react'
@@ -132,11 +133,6 @@ function TwoFactorSection() {
     queryFn: twoFactorApi.status,
   })
 
-  const { data: securityKeys, isLoading: keysLoading } = useQuery({
-    queryKey: ['2fa-security-keys'],
-    queryFn: twoFactorApi.securityKeys,
-  })
-
   const setup = useMutation({
     mutationFn: twoFactorApi.totpSetup,
     onSuccess: (data) => setSetupData(data),
@@ -163,14 +159,6 @@ function TwoFactorSection() {
     onError: (err) => toast.error(extractError(err)),
   })
 
-  const removeKey = useMutation({
-    mutationFn: twoFactorApi.removeSecurityKey,
-    onSuccess: () => {
-      toast.success('Security key removed')
-      qc.invalidateQueries({ queryKey: ['2fa-security-keys'] })
-    },
-    onError: (err) => toast.error(extractError(err)),
-  })
 
   const copySecret = (secret: string) => {
     navigator.clipboard.writeText(secret)
@@ -274,46 +262,134 @@ function TwoFactorSection() {
             </div>
 
             {/* Security Keys subsection */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">Security Keys</h3>
-
-              {keysLoading ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
-              ) : securityKeys && securityKeys.length > 0 ? (
-                <div className="space-y-2">
-                  {securityKeys.map((key) => (
-                    <div
-                      key={key.id}
-                      className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Key className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">{key.name}</span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
-                          Added {new Date(key.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => removeKey.mutate(key.id)}
-                        loading={removeKey.isPending}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rounded-lg border border-dashed border-gray-200 py-6 text-center dark:border-gray-700">
-                  <Key className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No security keys registered</p>
-                </div>
-              )}
-            </div>
+            <SecurityKeysSection />
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Security Keys Section ────────────────────────────────────────────────────
+
+function SecurityKeysSection() {
+  const qc = useQueryClient()
+  const [registering, setRegistering] = useState(false)
+  const [keyName, setKeyName] = useState('')
+  const [showNameInput, setShowNameInput] = useState(false)
+
+  const { data: keys, isLoading } = useQuery({
+    queryKey: ['2fa-security-keys'],
+    queryFn: twoFactorApi.securityKeys,
+  })
+
+  const removeKey = useMutation({
+    mutationFn: twoFactorApi.removeSecurityKey,
+    onSuccess: () => {
+      toast.success('Security key removed')
+      qc.invalidateQueries({ queryKey: ['2fa-security-keys'] })
+      qc.invalidateQueries({ queryKey: ['2fa-status'] })
+    },
+    onError: (err: unknown) => toast.error(extractError(err)),
+  })
+
+  const handleRegister = async () => {
+    if (!keyName.trim()) {
+      toast.error('Please enter a name for this key')
+      return
+    }
+    setRegistering(true)
+    try {
+      // 1. Get registration options from server
+      const options = await twoFactorApi.securityKeyRegisterOptions()
+
+      // 2. Start WebAuthn registration (browser prompts for key)
+      const attestation = await startRegistration({ optionsJSON: options })
+
+      // 3. Send attestation to server for verification
+      await twoFactorApi.securityKeyRegisterVerify(attestation, keyName.trim())
+
+      toast.success('Security key registered!')
+      setKeyName('')
+      setShowNameInput(false)
+      qc.invalidateQueries({ queryKey: ['2fa-security-keys'] })
+      qc.invalidateQueries({ queryKey: ['2fa-status'] })
+    } catch (err: any) {
+      if (err?.name === 'NotAllowedError') {
+        toast.error('Registration cancelled or timed out')
+      } else {
+        toast.error(extractError(err))
+      }
+    } finally {
+      setRegistering(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Security Keys</h3>
+
+      {isLoading ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading...</p>
+      ) : keys && keys.length > 0 ? (
+        <div className="space-y-2">
+          {keys.map((key) => (
+            <div
+              key={key.id}
+              className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50"
+            >
+              <div className="flex items-center gap-2">
+                <Key className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{key.name}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  Added {new Date(key.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => removeKey.mutate(key.id)}
+                loading={removeKey.isPending}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-gray-200 py-6 text-center dark:border-gray-700">
+          <Key className="mx-auto mb-2 h-8 w-8 text-gray-300 dark:text-gray-600" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">No security keys registered</p>
+          <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Add a YubiKey or other FIDO2 security key</p>
+          <a href="https://www.yubico.com/resources/why-the-yubikey/" target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-xs text-blue-500 hover:underline dark:text-blue-400">
+            Learn about security keys →
+          </a>
+        </div>
+      )}
+
+      {showNameInput ? (
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Input
+              label="Key name"
+              value={keyName}
+              onChange={(e) => setKeyName(e.target.value)}
+              placeholder="e.g. YubiKey 5, Backup key"
+              autoFocus
+            />
+          </div>
+          <Button onClick={handleRegister} loading={registering} disabled={!keyName.trim()}>
+            <Key className="h-4 w-4" /> Register
+          </Button>
+          <Button variant="secondary" onClick={() => { setShowNameInput(false); setKeyName('') }}>
+            Cancel
+          </Button>
+        </div>
+      ) : (
+        <Button variant="secondary" onClick={() => setShowNameInput(true)}>
+          <Key className="h-4 w-4" /> Add Security Key
+        </Button>
+      )}
     </div>
   )
 }
