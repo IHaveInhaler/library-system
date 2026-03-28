@@ -560,35 +560,37 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
 
           {/* ── Details ── */}
           {tab === 'details' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="First name" value={details.firstName} onChange={(e) => setDetails({ ...details, firstName: e.target.value })} />
-                <Input label="Last name" value={details.lastName} onChange={(e) => setDetails({ ...details, lastName: e.target.value })} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
-                <select value={details.role} onChange={(e) => setDetails({ ...details, role: e.target.value })}
-                  disabled={isSelf}
-                  title={isSelf ? 'You cannot change your own role' : undefined}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-                  {(groups ?? []).map((g) => <option key={g.name} value={g.name}>{g.name}</option>)}
-                </select>
-              </div>
-              <div className="pt-2">
+            <div className="space-y-6">
+              {/* Profile fields */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="First name" value={details.firstName} onChange={(e) => setDetails({ ...details, firstName: e.target.value })} />
+                  <Input label="Last name" value={details.lastName} onChange={(e) => setDetails({ ...details, lastName: e.target.value })} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
+                  <select value={details.role} onChange={(e) => setDetails({ ...details, role: e.target.value })}
+                    disabled={isSelf}
+                    title={isSelf ? 'You cannot change your own role' : undefined}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                    {(groups ?? []).map((g) => <option key={g.name} value={g.name}>{g.name}</option>)}
+                  </select>
+                </div>
                 <Button onClick={() => updateUser.mutate()} loading={updateUser.isPending}>Save changes</Button>
               </div>
 
               {/* Deactivation reason */}
               {!user.isActive && user.deactivationReason && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-700/50 dark:bg-amber-900/20">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-700/50 dark:bg-amber-900/20">
                   <p className="text-xs font-medium text-amber-700 dark:text-amber-400">Deactivation reason</p>
                   <p className="mt-0.5 text-sm text-amber-800 dark:text-amber-300">{user.deactivationReason}</p>
                 </div>
               )}
 
               {/* Account actions */}
-              <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 dark:border-gray-700">
-                <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-3 border-t border-gray-100 pt-6 dark:border-gray-700">
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Account Actions</p>
+                <div className="grid grid-cols-2 gap-3">
                   <Button
                     variant="secondary"
                     disabled={isSelf}
@@ -613,6 +615,19 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                     loading={resetPassword.isPending}
                   >
                     Reset Password
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={isSelf}
+                    title={isSelf ? 'Cannot require 2FA on your own account this way' : undefined}
+                    onClick={() => {
+                      if (confirm(`This will deactivate ${user.firstName}'s account until they set up two-factor authentication. Continue?`)) {
+                        toggleActive.mutate('Pending 2FA setup — account will reactivate once TOTP or a security key is configured')
+                      }
+                    }}
+                    loading={toggleActive.isPending}
+                  >
+                    Require 2FA
                   </Button>
                 </div>
                 {currentUser?.role === 'ADMIN' && (
