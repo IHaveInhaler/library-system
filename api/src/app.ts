@@ -1,5 +1,6 @@
 import express from 'express'
 import path from 'path'
+import helmet from 'helmet'
 import cors from 'cors'
 import rateLimit from 'express-rate-limit'
 import { env } from './config/env'
@@ -34,6 +35,12 @@ export function createApp() {
   if (process.env.TRUST_PROXY === 'true') {
     app.set('trust proxy', true)
   }
+
+  // Security headers — removes X-Powered-By, adds X-Content-Type-Options, etc.
+  app.use(helmet({
+    contentSecurityPolicy: false, // CSP managed by frontend
+    crossOriginEmbedderPolicy: false, // Allow image loading from uploads
+  }))
 
   // CORS — validate origin isn't wildcard in production
   const corsOrigin = env.CORS_ORIGIN
