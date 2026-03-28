@@ -158,6 +158,12 @@ export async function createBookFromIsbn(input: IsbnLookupInput) {
   }
 
   if (input.genre) metadata.genre = input.genre
+  if (input.title) metadata.title = input.title
+  if (input.author) metadata.author = input.author
+  if (input.publisher !== undefined) metadata.publisher = input.publisher
+  if (input.publishedYear !== undefined) metadata.publishedYear = input.publishedYear
+  if (input.description !== undefined) metadata.description = input.description
+  if (input.language) metadata.language = input.language
 
   return prisma.book.create({ data: metadata })
 }

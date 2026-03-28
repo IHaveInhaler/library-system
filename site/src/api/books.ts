@@ -32,7 +32,7 @@ export const booksApi = {
   create: (data: Partial<Book>) =>
     api.post<Book>('/books', data).then((r) => r.data),
 
-  createFromIsbn: (data: { isbn: string; genre?: string }) =>
+  createFromIsbn: (data: { isbn: string; genre?: string; title?: string; author?: string; publisher?: string; publishedYear?: number; description?: string; language?: string }) =>
     api.post<Book>('/books/isbn', data).then((r) => r.data),
 
   update: (id: string, data: Partial<Book>) =>

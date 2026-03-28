@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { User, Library } from '../types'
+import type { User, Library, Book } from '../types'
 
 export const uploadsApi = {
   uploadAvatar: (userId: string, file: File) => {
@@ -19,4 +19,13 @@ export const uploadsApi = {
 
   deleteLibraryImage: (libraryId: string) =>
     api.delete(`/libraries/${libraryId}/image`),
+
+  uploadBookCover: (bookId: string, file: File) => {
+    const form = new FormData()
+    form.append('cover', file)
+    return api.post<Book>(`/books/${bookId}/cover`, form).then((r) => r.data)
+  },
+
+  deleteBookCover: (bookId: string) =>
+    api.delete(`/books/${bookId}/cover`),
 }

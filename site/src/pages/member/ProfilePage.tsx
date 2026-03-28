@@ -77,6 +77,8 @@ function ProfileSection() {
                 {initials}
               </div>
             )}
+
+            <p className="text-[10px] text-gray-400 dark:text-gray-500">Recommended: 256×256px</p>
             <div className="flex gap-1.5">
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
               <Button

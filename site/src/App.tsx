@@ -15,6 +15,7 @@ import BooksPage from './pages/public/BooksPage'
 import BookDetailPage from './pages/public/BookDetailPage'
 import LibrariesPage from './pages/public/LibrariesPage'
 import LibraryDetailPage from './pages/public/LibraryDetailPage'
+import LandingPage from './pages/public/LandingPage'
 import LoginPage from './pages/public/LoginPage'
 import RegisterPage from './pages/public/RegisterPage'
 import ForgotPasswordPage from './pages/public/ForgotPasswordPage'
@@ -33,6 +34,7 @@ import ManageLibrariesPage from './pages/admin/ManageLibrariesPage'
 import LoansPage from './pages/admin/LoansPage'
 import ReservationsPage from './pages/admin/ReservationsPage'
 import UsersPage from './pages/admin/UsersPage'
+import CategoriesPage from './pages/admin/CategoriesPage'
 
 const qc = new QueryClient({
   defaultOptions: {
@@ -76,7 +78,8 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Auth pages — no navbar */}
+      {/* Landing page & auth pages — no navbar */}
+      <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -90,7 +93,7 @@ function AppRoutes() {
           <>
             <Navbar />
             <Routes>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/home" element={<HomePage />} />
               <Route path="/books" element={<BooksPage />} />
               <Route path="/books/:id" element={<BookDetailPage />} />
               <Route path="/libraries" element={<LibrariesPage />} />
@@ -106,6 +109,7 @@ function AppRoutes() {
               <Route path="/manage/loans" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><LoansPage /></ProtectedRoute>} />
               <Route path="/manage/reservations" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ReservationsPage /></ProtectedRoute>} />
               <Route path="/manage/users" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><UsersPage /></ProtectedRoute>} />
+              <Route path="/manage/categories" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><CategoriesPage /></ProtectedRoute>} />
 
               {/* Admin section — ADMIN only */}
               <Route path="/admin" element={<ProtectedRoute roles={['ADMIN']}><AdminPage /></ProtectedRoute>} />
@@ -120,7 +124,7 @@ function AppRoutes() {
               <Route path="/admin/libraries" element={<Navigate to="/manage/libraries" replace />} />
               <Route path="/admin/loans" element={<Navigate to="/manage/loans" replace />} />
 
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
           </>
         }

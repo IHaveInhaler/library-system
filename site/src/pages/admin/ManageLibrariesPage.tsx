@@ -264,6 +264,7 @@ function EditLibraryDrawer({ library, onClose }: { library: LibraryType; onClose
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       {uploadImage.isPending ? 'Uploading...' : 'Click to upload an image'}
                     </p>
+                    <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">Recommended: 1200×400px</p>
                   </div>
                 </button>
               )}

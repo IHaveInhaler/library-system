@@ -137,4 +137,53 @@ router.delete(
   }
 )
 
+// ── Book cover ──────────────────────────────────────────────────────────────
+
+router.post(
+  '/books/:id/cover',
+  authenticate,
+  authorizePermission('MANAGE_BOOKS'),
+  upload.single('cover'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = req.params.id as string
+      const book = await prisma.book.findUnique({ where: { id } })
+      if (!book) throw new NotFoundError('Book')
+
+      const filename = await secureFile(req)
+
+      // Delete old cover if it's a local upload
+      if (book.coverUrl?.startsWith('/uploads/')) {
+        const oldFile = book.coverUrl.split('/').pop()
+        if (oldFile) deleteFile(oldFile)
+      }
+
+      const coverUrl = getUploadUrl(filename)
+      const updated = await prisma.book.update({ where: { id }, data: { coverUrl } })
+      res.json(updated)
+    } catch (err) { next(err) }
+  }
+)
+
+router.delete(
+  '/books/:id/cover',
+  authenticate,
+  authorizePermission('MANAGE_BOOKS'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = req.params.id as string
+      const book = await prisma.book.findUnique({ where: { id } })
+      if (!book) throw new NotFoundError('Book')
+
+      if (book.coverUrl?.startsWith('/uploads/')) {
+        const oldFile = book.coverUrl.split('/').pop()
+        if (oldFile) deleteFile(oldFile)
+      }
+
+      await prisma.book.update({ where: { id }, data: { coverUrl: null } })
+      res.status(204).end()
+    } catch (err) { next(err) }
+  }
+)
+
 export default router

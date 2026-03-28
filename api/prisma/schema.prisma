@@ -162,6 +162,16 @@ model Shelf {
   @@unique([libraryId, code])
 }
 
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique // machine name e.g. FICTION
+  label     String          // display name e.g. Fiction
+  color     String?         // optional hex color for badges
+  order     Int     @default(999)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Book {
   id            String   @id @default(uuid())
   isbn          String   @unique
@@ -169,7 +179,7 @@ model Book {
   author        String
   publisher     String?
   publishedYear Int?
-  genre         String   // same genre values as Shelf
+  genre         String   // references Category.name
   description   String?
   coverUrl      String?
   totalPages    Int?

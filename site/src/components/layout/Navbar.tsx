@@ -29,7 +29,7 @@ export function Navbar() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-1.5 text-sm font-medium transition-colors ${
       isActive
-        ? 'text-blue-600 dark:text-blue-400'
+        ? 'nav-active'
         : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
     }`
 
@@ -37,11 +37,11 @@ export function Navbar() {
     <nav className="sticky top-0 z-40 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         <div className="flex items-center gap-6">
-          <Link to="/" className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+          <Link to="/home" className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
             {logoUrl ? (
               <img src={logoUrl} alt={appName} className="h-6 w-6 rounded object-contain" />
             ) : (
-              <BookOpen className="h-5 w-5 text-blue-600" />
+              <BookOpen className="h-5 w-5 text-primary" />
             )}
             {appName}
           </Link>

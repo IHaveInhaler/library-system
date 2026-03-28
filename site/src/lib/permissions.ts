@@ -27,6 +27,7 @@ export const PERMISSIONS: PermissionInfo[] = [
   // Books & Copies
   { key: 'MANAGE_BOOKS', label: 'Manage Books', description: 'Create, edit, and delete books in the catalogue. Includes ISBN import.', category: 'Books & Copies' },
   { key: 'MANAGE_COPIES', label: 'Manage Copies', description: 'Register, update condition/status, and delete book copies. Requires Staff access for the copy\'s library.', category: 'Books & Copies' },
+  { key: 'MANAGE_CATEGORIES', label: 'Manage Categories', description: 'Create, edit, and delete book/shelf categories (genres).', category: 'Books & Copies' },
 
   // Loans
   { key: 'ISSUE_LOANS', label: 'Issue Loans', description: 'Issue new loans to members. Requires Staff access to the copy\'s library.', category: 'Loans' },
