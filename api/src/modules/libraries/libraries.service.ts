@@ -72,7 +72,7 @@ export async function createLibrary(input: CreateLibraryInput) {
 
 async function generateUniqueLabelForPrefix(prefix: string, position: ShelfPosition): Promise<string> {
   for (let attempt = 0; attempt < 20; attempt++) {
-    const label = generateShelfLabel(prefix, position)
+    const label = await generateShelfLabel(prefix, position)
     const existing = await prisma.shelf.findUnique({ where: { label } })
     if (!existing) return label
   }

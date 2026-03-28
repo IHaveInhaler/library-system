@@ -1,11 +1,10 @@
 import { z } from 'zod'
 import { Genre } from '../../types'
-import { SHELF_POSITIONS } from '../../lib/shelfLabel'
 
 export const createShelfSchema = z.object({
   code: z.string().min(1).max(20),
   location: z.string().max(300).optional(),
-  position: z.enum(['L', 'M', 'R'] as const).default('L'),
+  position: z.string().min(1).max(3).default('L'),
   genre: z.nativeEnum(Genre),
   capacity: z.number().int().min(1).max(10000).default(100),
   libraryId: z.string().uuid(),
@@ -18,7 +17,7 @@ export const shelfQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).default(20),
   libraryId: z.string().uuid().optional(),
   genre: z.nativeEnum(Genre).optional(),
-  position: z.enum(['L', 'M', 'R'] as const).optional(),
+  position: z.string().optional(),
 })
 
 export type CreateShelfInput = z.infer<typeof createShelfSchema>

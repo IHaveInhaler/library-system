@@ -248,12 +248,10 @@ export async function devSeed() {
     prisma.libraryMembership.create({ data: { userId: member.id, libraryId: westLib.id, membershipType: 'MONTHLY', endDate: monthEnd } }),
   ])
 
-  const [shelf1, shelf2, shelf3, shelf4] = await Promise.all([
-    prisma.shelf.create({ data: { code: 'FIC-01', label: generateShelfLabel('CEN', 'L'), position: 'L', genre: 'FICTION', location: 'Ground floor, north wing', libraryId: centralLib.id } }),
-    prisma.shelf.create({ data: { code: 'SCI-01', label: generateShelfLabel('CEN', 'M'), position: 'M', genre: 'SCIENCE', location: 'First floor, east wing', libraryId: centralLib.id } }),
-    prisma.shelf.create({ data: { code: 'TECH-01', label: generateShelfLabel('CEN', 'R'), position: 'R', genre: 'TECHNOLOGY', location: 'First floor, east wing', libraryId: centralLib.id } }),
-    prisma.shelf.create({ data: { code: 'FIC-01', label: generateShelfLabel('WST', 'L'), position: 'L', genre: 'FICTION', location: 'Ground floor, main hall', libraryId: westLib.id } }),
-  ])
+  const shelf1 = await prisma.shelf.create({ data: { code: 'FIC-01', label: await generateShelfLabel('CEN', 'L'), position: 'L', genre: 'FICTION', location: 'Ground floor, north wing', libraryId: centralLib.id } })
+  const shelf2 = await prisma.shelf.create({ data: { code: 'SCI-01', label: await generateShelfLabel('CEN', 'M'), position: 'M', genre: 'SCIENCE', location: 'First floor, east wing', libraryId: centralLib.id } })
+  const shelf3 = await prisma.shelf.create({ data: { code: 'TECH-01', label: await generateShelfLabel('CEN', 'R'), position: 'R', genre: 'TECHNOLOGY', location: 'First floor, east wing', libraryId: centralLib.id } })
+  const shelf4 = await prisma.shelf.create({ data: { code: 'FIC-01', label: await generateShelfLabel('WST', 'L'), position: 'L', genre: 'FICTION', location: 'Ground floor, main hall', libraryId: westLib.id } })
 
   // Seed books by ISBN — fetch metadata from Open Library for covers + descriptions
   const seedIsbns = [

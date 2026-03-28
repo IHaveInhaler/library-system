@@ -1,23 +1,24 @@
 /**
- * Shelf label format: {PREFIX}-{POSITION}{DIGITS}{CHECKSUM}
+ * Shelf label generation using configurable format from settings.
  *
- * PREFIX   — 3-letter library prefix (e.g. "CEN")
- * POSITION — L | M | R  (Left / Middle / Right, configurable per shelf)
- * DIGITS   — 4 random digits (0000–9999)
- * CHECKSUM — 1 digit: (sum of the 4 random digits) mod 10
+ * Default format: {PREFIX}-{POSITION}{DIGITS}{CHECK}
+ *
+ * Variables:
+ *   {PREFIX}   — Library label prefix (e.g. "CEN")
+ *   {POSITION} — Shelf position code (e.g. "L", "GF")
+ *   {DIGITS}   — 4 random digits (0000–9999)
+ *   {CHECK}    — 1 checksum digit: (sum of DIGITS) mod 10
+ *   {RANDOM}   — 4 random alphanumeric characters
+ *   {SEQ}      — Not yet implemented (placeholder)
  *
  * Example: CEN-L08097  →  0+8+0+9 = 17 → 17 mod 10 = 7  ✓
  */
 
-export type ShelfPosition = 'L' | 'M' | 'R'
+import { getSetting } from './settings'
 
-export const SHELF_POSITIONS: ShelfPosition[] = ['L', 'M', 'R']
+export type ShelfPosition = string // No longer restricted to L/M/R
 
-export const POSITION_LABELS: Record<ShelfPosition, string> = {
-  L: 'Left',
-  M: 'Middle',
-  R: 'Right',
-}
+const DEFAULT_FORMAT = '{PREFIX}-{POSITION}{DIGITS}{CHECK}'
 
 function checksum(digits: string): string {
   const sum = digits.split('').reduce((acc, d) => acc + parseInt(d, 10), 0)
@@ -28,18 +29,28 @@ function randomDigits(length: number): string {
   return Array.from({ length }, () => Math.floor(Math.random() * 10)).join('')
 }
 
-export function generateShelfLabel(prefix: string, position: ShelfPosition): string {
+function randomAlphanumeric(length: number): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+  return Array.from({ length }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+}
+
+export async function generateShelfLabel(prefix: string, position: ShelfPosition): Promise<string> {
+  const format = (await getSetting('barcode.shelfFormat')) || DEFAULT_FORMAT
   const normalised = prefix.toUpperCase().slice(0, 3).padEnd(3, 'X')
   const digits = randomDigits(4)
   const check = checksum(digits)
-  return `${normalised}-${position}${digits}${check}`
+  const random = randomAlphanumeric(4)
+
+  return format
+    .replace('{PREFIX}', normalised)
+    .replace('{POSITION}', position)
+    .replace('{DIGITS}', digits)
+    .replace('{CHECK}', check)
+    .replace('{RANDOM}', random)
+    .replace('{SEQ}', '001') // Placeholder for future sequential numbering
 }
 
 export function validateShelfLabel(label: string): boolean {
-  // Format: 3 alpha chars, dash, 1 position char, 4 digits, 1 checksum digit
-  const match = label.match(/^([A-Z]{3})-([LMR])(\d{4})(\d)$/)
-  if (!match) return false
-
-  const [, , , digits, provided] = match
-  return checksum(digits) === provided
+  // Basic validation — at least 5 chars, alphanumeric with dashes
+  return /^[A-Z0-9][-A-Z0-9]{4,}$/i.test(label)
 }

@@ -19,7 +19,7 @@ async function resolveAccess(userId?: string, userRole?: string) {
 async function generateUniqueLabel(prefix: string, position: ShelfPosition): Promise<string> {
   // Retry until we get a label that doesn't already exist
   for (let attempt = 0; attempt < 10; attempt++) {
-    const label = generateShelfLabel(prefix, position)
+    const label = await generateShelfLabel(prefix, position)
     const existing = await prisma.shelf.findUnique({ where: { label } })
     if (!existing) return label
   }
