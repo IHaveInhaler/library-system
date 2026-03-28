@@ -22,6 +22,8 @@ export type SettingKey =
   | '2fa.requiredRoles'
   | '2fa.methods'
   | '2fa.securityKeysOnly'
+  | 'barcode.shelfFormat'
+  | 'barcode.copyFormat'
 
 export type SettingsResponse = {
   settings: Record<SettingKey, string>

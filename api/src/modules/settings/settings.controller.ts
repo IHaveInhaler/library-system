@@ -24,6 +24,8 @@ const ALLOWED_KEYS = [
   '2fa.requiredRoles',
   '2fa.methods',
   '2fa.securityKeysOnly',
+  'barcode.shelfFormat',
+  'barcode.copyFormat',
 ]
 
 async function buildSettingsResponse() {
@@ -69,10 +71,49 @@ export async function getSettings(_req: Request, res: Response, next: NextFuncti
   } catch (err) { next(err) }
 }
 
+// Map setting key prefixes to required permissions
+const KEY_PERMISSIONS: Record<string, string> = {
+  'smtp.': 'CONFIGURE_SMTP',
+  'app.': 'CONFIGURE_GENERAL',
+  'brand.': 'CONFIGURE_WHITELABEL',
+  'reg.': 'CONFIGURE_REGISTRATION',
+  'membership.': 'CONFIGURE_GENERAL',
+  '2fa.': 'CONFIGURE_2FA',
+  'barcode.': 'CONFIGURE_BARCODES',
+  'dev.': 'ADMIN', // Dev mode is admin-only, not permission-based
+}
+
+function getRequiredPermission(key: string): string {
+  for (const [prefix, perm] of Object.entries(KEY_PERMISSIONS)) {
+    if (key.startsWith(prefix)) return perm
+  }
+  return 'ADMIN' // Unknown keys require admin
+}
+
 export async function updateSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const { hasPermission } = await import('../../lib/permissions')
     const locked = getLockedKeys()
     const updates = req.body as Record<string, string>
+
+    // Check per-key permissions
+    for (const key of Object.keys(updates)) {
+      if (!ALLOWED_KEYS.includes(key)) continue
+      const perm = getRequiredPermission(key)
+      if (perm === 'ADMIN') {
+        if (req.user?.role !== 'ADMIN') {
+          res.status(403).json({ code: 'FORBIDDEN', message: `Admin required to modify ${key}` })
+          return
+        }
+      } else {
+        const granted = await hasPermission(req.user!.role, perm)
+        if (!granted) {
+          res.status(403).json({ code: 'FORBIDDEN', message: `Missing permission: ${perm}` })
+          return
+        }
+      }
+    }
+
     const filtered = Object.entries(updates).filter(
       ([k]) => ALLOWED_KEYS.includes(k) && !locked.includes(k)
     )

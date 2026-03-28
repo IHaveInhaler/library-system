@@ -1,7 +1,6 @@
 import { Router } from 'express'
 import { validate } from '../../middleware/validate'
 import { authenticate } from '../../middleware/authenticate'
-import { authorize } from '../../middleware/authorize'
 import { authorizePermission } from '../../middleware/authorizePermission'
 import { optionalAuthenticate } from '../../middleware/optionalAuthenticate'
 import { createBookSchema, updateBookSchema, bookQuerySchema, isbnLookupSchema } from './books.schemas'
@@ -16,6 +15,6 @@ router.get('/:id/copies', optionalAuthenticate, controller.copies)
 router.post('/isbn', authenticate, authorizePermission('MANAGE_BOOKS'), validate(isbnLookupSchema), controller.createFromIsbn)
 router.post('/', authenticate, authorizePermission('MANAGE_BOOKS'), validate(createBookSchema), controller.create)
 router.patch('/:id', authenticate, authorizePermission('MANAGE_BOOKS'), validate(updateBookSchema), controller.update)
-router.delete('/:id', authenticate, authorize('ADMIN'), controller.remove)
+router.delete('/:id', authenticate, authorizePermission('DELETE_BOOK'), controller.remove)
 
 export default router
