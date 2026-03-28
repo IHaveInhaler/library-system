@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { BookOpen, Library, Users, ClipboardList, Bookmark, Tag } from 'lucide-react'
+import { BookOpen, Library, Users, ClipboardList, Bookmark, Tag, Layers } from 'lucide-react'
 import { booksApi } from '../../api/books'
 import { loansApi } from '../../api/loans'
 import { reservationsApi } from '../../api/reservations'
@@ -30,13 +30,17 @@ export default function ManagePage() {
     { label: 'Books in Catalogue', value: books?.meta.total ?? '…', color: 'green', href: '/manage/books' },
   ]
 
-  const links = [
-    { icon: BookOpen, label: 'Manage Books', href: '/manage/books' },
-    { icon: Library, label: 'Manage Libraries', href: '/manage/libraries' },
-    { icon: ClipboardList, label: 'Loans', href: '/manage/loans' },
-    { icon: Bookmark, label: 'Reservations', href: '/manage/reservations' },
-    { icon: Tag, label: 'Categories', href: '/manage/categories' },
-    { icon: Users, label: 'Users', href: '/manage/users' },
+  const libraryLinks = [
+    { icon: Library, label: 'Libraries', description: 'Manage branches and locations', href: '/manage/libraries' },
+    { icon: Layers, label: 'Shelves', description: 'Organise shelving by genre and location', href: '/manage/shelves' },
+    { icon: BookOpen, label: 'Books', description: 'Catalogue, ISBN import, copies', href: '/manage/books' },
+    { icon: Tag, label: 'Categories', description: 'Genres and classification', href: '/manage/categories' },
+  ]
+
+  const serviceLinks = [
+    { icon: ClipboardList, label: 'Loans', description: 'Issue, return, and renew', href: '/manage/loans' },
+    { icon: Bookmark, label: 'Reservations', description: 'Fulfill and manage holds', href: '/manage/reservations' },
+    { icon: Users, label: 'Users', description: 'Accounts, memberships, roles', href: '/manage/users' },
   ]
 
   return (
@@ -52,16 +56,42 @@ export default function ManagePage() {
         ))}
       </div>
 
-      <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Quick links</h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {links.map(({ icon: Icon, label, href }) => (
-          <Link key={href} to={href} className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition dark:border-gray-700 dark:bg-gray-800">
-            <div className="rounded-lg bg-gray-100 p-2 group-hover:bg-blue-100 transition dark:bg-gray-700 dark:group-hover:bg-blue-900/40">
-              <Icon className="h-5 w-5 text-gray-600 group-hover:text-blue-600 transition dark:text-gray-400 dark:group-hover:text-blue-400" />
-            </div>
-            <span className="font-medium text-gray-900 group-hover:text-blue-600 transition dark:text-white dark:group-hover:text-blue-400">{label}</span>
-          </Link>
-        ))}
+      <div className="grid gap-8 sm:grid-cols-2">
+        {/* Library Management */}
+        <div>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Library Management</h2>
+          <div className="space-y-2">
+            {libraryLinks.map(({ icon: Icon, label, description, href }) => (
+              <Link key={href} to={href} className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition dark:border-gray-700 dark:bg-gray-800">
+                <div className="rounded-lg bg-gray-100 p-2 group-hover:bg-blue-100 transition dark:bg-gray-700 dark:group-hover:bg-blue-900/40">
+                  <Icon className="h-5 w-5 text-gray-600 group-hover:text-blue-600 transition dark:text-gray-400 dark:group-hover:text-blue-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 group-hover:text-blue-600 transition dark:text-white dark:group-hover:text-blue-400">{label}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {/* Member Services */}
+        <div>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Member Services</h2>
+          <div className="space-y-2">
+            {serviceLinks.map(({ icon: Icon, label, description, href }) => (
+              <Link key={href} to={href} className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition dark:border-gray-700 dark:bg-gray-800">
+                <div className="rounded-lg bg-gray-100 p-2 group-hover:bg-blue-100 transition dark:bg-gray-700 dark:group-hover:bg-blue-900/40">
+                  <Icon className="h-5 w-5 text-gray-600 group-hover:text-blue-600 transition dark:text-gray-400 dark:group-hover:text-blue-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 group-hover:text-blue-600 transition dark:text-white dark:group-hover:text-blue-400">{label}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   )
