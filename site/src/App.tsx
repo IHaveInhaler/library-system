@@ -31,6 +31,7 @@ import GroupsPage from './pages/admin/GroupsPage'
 import MembershipTypesPage from './pages/admin/MembershipTypesPage'
 import ManageBooksPage from './pages/admin/ManageBooksPage'
 import ManageLibrariesPage from './pages/admin/ManageLibrariesPage'
+import ManageShelvesPage from './pages/admin/ManageShelvesPage'
 import LoansPage from './pages/admin/LoansPage'
 import ReservationsPage from './pages/admin/ReservationsPage'
 import UsersPage from './pages/admin/UsersPage'
@@ -106,6 +107,7 @@ function AppRoutes() {
               <Route path="/manage" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ManagePage /></ProtectedRoute>} />
               <Route path="/manage/books" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ManageBooksPage /></ProtectedRoute>} />
               <Route path="/manage/libraries" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ManageLibrariesPage /></ProtectedRoute>} />
+              <Route path="/manage/shelves" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ManageShelvesPage /></ProtectedRoute>} />
               <Route path="/manage/loans" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><LoansPage /></ProtectedRoute>} />
               <Route path="/manage/reservations" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ReservationsPage /></ProtectedRoute>} />
               <Route path="/manage/users" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><UsersPage /></ProtectedRoute>} />
