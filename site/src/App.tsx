@@ -7,6 +7,7 @@ import { Navbar } from './components/layout/Navbar'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { PageSpinner } from './components/ui/Spinner'
 import { setupApi } from './api/setup'
+import { useBrandStore } from './store/brand'
 
 import SetupWizard from './pages/setup/SetupWizard'
 import HomePage from './pages/public/HomePage'
@@ -20,6 +21,7 @@ import ForgotPasswordPage from './pages/public/ForgotPasswordPage'
 import ResetPasswordPage from './pages/public/ResetPasswordPage'
 import VerifyEmailPage from './pages/public/VerifyEmailPage'
 import DashboardPage from './pages/member/DashboardPage'
+import ProfilePage from './pages/member/ProfilePage'
 import ManagePage from './pages/admin/ManagePage'
 import AdminPage from './pages/admin/AdminPage'
 import AuditLogPage from './pages/admin/AuditLogPage'
@@ -41,8 +43,10 @@ const qc = new QueryClient({
 function AppRoutes() {
   const [setupState, setSetupState] = useState<'loading' | 'setup' | 'ready'>('loading')
   const [setupStatus, setSetupStatus] = useState<import('./api/setup').SetupStatus | undefined>()
+  const loadBrand = useBrandStore((s) => s.load)
 
   useEffect(() => {
+    loadBrand() // Load white label settings on startup
     setupApi
       .status()
       .then((s) => {
@@ -50,7 +54,7 @@ function AppRoutes() {
         setSetupState(s.needsSetup ? 'setup' : 'ready')
       })
       .catch(() => setSetupState('ready'))
-  }, [])
+  }, [loadBrand])
 
   if (setupState === 'loading') return <PageSpinner />
 
@@ -93,6 +97,7 @@ function AppRoutes() {
               <Route path="/libraries/:id" element={<LibraryDetailPage />} />
 
               <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
               {/* Manage section — Librarian+ */}
               <Route path="/manage" element={<ProtectedRoute roles={['LIBRARIAN', 'ADMIN']}><ManagePage /></ProtectedRoute>} />

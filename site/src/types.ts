@@ -21,6 +21,7 @@ export interface User {
   email: string
   firstName: string
   lastName: string
+  avatarUrl?: string | null
   role: Role
   isActive: boolean
   emailVerified: boolean
@@ -36,6 +37,7 @@ export interface Library {
   name: string
   labelPrefix: string
   email?: string
+  imageUrl?: string | null
   isActive: boolean
   isPrivate: boolean
   createdAt: string

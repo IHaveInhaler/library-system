@@ -22,7 +22,9 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: authApi.login,
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
+      // If 2FA is required, don't set auth — the LoginPage handles the challenge flow
+      if (data.requires2FA) return
       setAuth(data.user, data.accessToken, data.refreshToken)
       qc.setQueryData(['me'], data.user)
     },

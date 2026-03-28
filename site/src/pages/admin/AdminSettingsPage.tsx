@@ -7,6 +7,7 @@ import { settingsApi, type SettingKey } from '../../api/settings'
 import { groupsApi } from '../../api/groups'
 import { setupApi } from '../../api/setup'
 import { useAuthStore } from '../../store/auth'
+import { useBrandStore } from '../../store/brand'
 import { Button } from '../../components/ui/Button'
 import { extractError } from '../../api/client'
 
@@ -442,6 +443,8 @@ function WhiteLabelSettings() {
     }
   }, [data])
 
+  const loadBrand = useBrandStore((s) => s.load)
+
   const save = useMutation({
     mutationFn: () => settingsApi.update({
       'brand.appName': appName,
@@ -450,6 +453,25 @@ function WhiteLabelSettings() {
       'brand.faviconUrl': faviconUrl,
     }),
     onSuccess: (res) => { toast.success('White label settings saved'); qc.setQueryData(['settings'], res) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const resetDefaults = useMutation({
+    mutationFn: () => settingsApi.update({
+      'brand.appName': '',
+      'brand.logoUrl': '',
+      'brand.primaryColor': '',
+      'brand.faviconUrl': '',
+    }),
+    onSuccess: (res) => {
+      qc.setQueryData(['settings'], res)
+      setAppName('')
+      setLogoUrl('')
+      setPrimaryColor('#2563eb')
+      setFaviconUrl('')
+      loadBrand()
+      toast.success('Defaults restored')
+    },
     onError: (err) => toast.error(extractError(err)),
   })
 
@@ -516,7 +538,8 @@ function WhiteLabelSettings() {
           />
         </div>
 
-        <div className="flex justify-end pt-2">
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="ghost" onClick={() => resetDefaults.mutate()} loading={resetDefaults.isPending}>Reset to Defaults</Button>
           <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
         </div>
       </div>

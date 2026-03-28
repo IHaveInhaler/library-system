@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Library, Plus, X, Pencil, Trash2 } from 'lucide-react'
+import { Library, Plus, X, Pencil, Trash2, Upload, ImageIcon } from 'lucide-react'
 import { librariesApi } from '../../api/libraries'
+import { uploadsApi } from '../../api/uploads'
 import { PageSpinner } from '../../components/ui/Spinner'
 import { EmptyState } from '../../components/ui/EmptyState'
 import { Button } from '../../components/ui/Button'
@@ -150,6 +151,7 @@ function DeleteLibraryModal({ library, open, onClose }: { library: LibraryType; 
 // ── Edit Library Drawer ───────────────────────────────────────────────────────
 function EditLibraryDrawer({ library, onClose }: { library: LibraryType; onClose: () => void }) {
   const qc = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [form, setForm] = useState({
     name: library.name,
     labelPrefix: library.labelPrefix,
@@ -174,6 +176,30 @@ function EditLibraryDrawer({ library, onClose }: { library: LibraryType; onClose
     onError: (err) => toast.error(extractError(err)),
   })
 
+  const uploadImage = useMutation({
+    mutationFn: (file: File) => uploadsApi.uploadLibraryImage(library.id, file),
+    onSuccess: () => {
+      toast.success('Image uploaded')
+      qc.invalidateQueries({ queryKey: ['libraries'] })
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const deleteImage = useMutation({
+    mutationFn: () => uploadsApi.deleteLibraryImage(library.id),
+    onSuccess: () => {
+      toast.success('Image removed')
+      qc.invalidateQueries({ queryKey: ['libraries'] })
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) uploadImage.mutate(file)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   const prefixChanged = form.labelPrefix !== library.labelPrefix
 
   return (
@@ -197,6 +223,59 @@ function EditLibraryDrawer({ library, onClose }: { library: LibraryType; onClose
           </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            {/* Library Image */}
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Library Image</label>
+              {library.imageUrl ? (
+                <div className="relative">
+                  <img
+                    src={library.imageUrl}
+                    alt={library.name}
+                    className="h-36 w-full rounded-xl object-cover border border-gray-200 dark:border-gray-700"
+                  />
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      loading={uploadImage.isPending}
+                    >
+                      <Upload className="h-3.5 w-3.5" /> Replace
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => deleteImage.mutate()}
+                      loading={deleteImage.isPending}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Remove
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadImage.isPending}
+                  className="flex h-36 w-full items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 transition hover:border-blue-400 hover:bg-blue-50 dark:border-gray-600 dark:bg-gray-800/50 dark:hover:border-blue-500 dark:hover:bg-blue-900/20"
+                >
+                  <div className="text-center">
+                    <ImageIcon className="mx-auto h-8 w-8 text-gray-300 dark:text-gray-600" />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {uploadImage.isPending ? 'Uploading...' : 'Click to upload an image'}
+                    </p>
+                  </div>
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+            </div>
+
             <Input label="Library Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <div>
               <Input

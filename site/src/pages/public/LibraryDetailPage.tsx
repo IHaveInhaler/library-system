@@ -121,6 +121,14 @@ export default function LibraryDetailPage() {
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
+      {library.imageUrl && (
+        <img
+          src={library.imageUrl}
+          alt={library.name}
+          className="mb-6 h-48 w-full rounded-xl object-cover border border-gray-200 dark:border-gray-700"
+        />
+      )}
+
       <div className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="flex items-start justify-between">
           <div>

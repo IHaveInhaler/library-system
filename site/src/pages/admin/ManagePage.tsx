@@ -39,7 +39,7 @@ export default function ManagePage() {
   ]
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="mb-8 text-2xl font-bold text-gray-900 dark:text-white">Manage</h1>
 
       <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

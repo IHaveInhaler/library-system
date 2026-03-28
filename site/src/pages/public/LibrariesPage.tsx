@@ -49,16 +49,25 @@ export default function LibrariesPage() {
             <Link
               key={lib.id}
               to={`/libraries/${lib.id}`}
-              className="group rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
+              className="group overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-800"
             >
-              <div className="flex items-start gap-3">
-                <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/40">
-                  <Library className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">{lib.name}</h3>
-                  {lib.email && <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{lib.email}</p>}
-                  <p className="mt-1 text-xs font-mono text-gray-400 dark:text-gray-500">prefix: {lib.labelPrefix}</p>
+              {lib.imageUrl && (
+                <img
+                  src={lib.imageUrl}
+                  alt={lib.name}
+                  className="h-32 w-full object-cover border-b border-gray-200 dark:border-gray-700"
+                />
+              )}
+              <div className="p-5">
+                <div className="flex items-start gap-3">
+                  <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/40">
+                    <Library className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400">{lib.name}</h3>
+                    {lib.email && <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{lib.email}</p>}
+                    <p className="mt-1 text-xs font-mono text-gray-400 dark:text-gray-500">prefix: {lib.labelPrefix}</p>
+                  </div>
                 </div>
               </div>
             </Link>

@@ -526,9 +526,13 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-bold text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-              {user.firstName[0]}{user.lastName[0]}
-            </div>
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="h-12 w-12 rounded-full object-cover" />
+            ) : (
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                {user.firstName[0]}{user.lastName?.[0] ?? ''}
+              </span>
+            )}
             <div>
               <p className="font-semibold text-gray-900 dark:text-white">{user.firstName} {user.lastName}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
@@ -946,9 +950,13 @@ export default function UsersPage() {
                   className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/40">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-bold dark:bg-gray-600 dark:text-gray-200">
-                        {u.firstName[0]}{u.lastName[0]}
-                      </div>
+                      {u.avatarUrl ? (
+                        <img src={u.avatarUrl} alt="" className="h-8 w-8 flex-shrink-0 rounded-full object-cover" />
+                      ) : (
+                        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                          {u.firstName[0]}{u.lastName?.[0] ?? ''}
+                        </span>
+                      )}
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">{u.firstName} {u.lastName}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{u.email}</p>

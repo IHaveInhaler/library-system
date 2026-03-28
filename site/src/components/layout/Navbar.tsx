@@ -3,6 +3,7 @@ import { BookOpen, LayoutDashboard, LogOut, Settings, ShieldCheck } from 'lucide
 import { useQuery } from '@tanstack/react-query'
 import { useAuth, useLogout, useRole } from '../../hooks/useAuth'
 import { librariesApi } from '../../api/libraries'
+import { useBrandStore } from '../../store/brand'
 import { Button } from '../ui/Button'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -11,6 +12,7 @@ export function Navbar() {
   const { isLibrarian, isAdmin } = useRole()
   const logout = useLogout()
   const navigate = useNavigate()
+  const { appName, logoUrl } = useBrandStore()
 
   const { data: libraryCount } = useQuery({
     queryKey: ['libraries', 'count'],
@@ -36,8 +38,12 @@ export function Navbar() {
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         <div className="flex items-center gap-6">
           <Link to="/" className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
-            <BookOpen className="h-5 w-5 text-blue-600" />
-            Library Portal
+            {logoUrl ? (
+              <img src={logoUrl} alt={appName} className="h-6 w-6 rounded object-contain" />
+            ) : (
+              <BookOpen className="h-5 w-5 text-blue-600" />
+            )}
+            {appName}
           </Link>
           <NavLink to="/books" className={linkClass}>Books</NavLink>
           <NavLink to="/libraries" className={linkClass}>{singleLibrary ? 'Library' : 'Libraries'}</NavLink>
@@ -71,9 +77,13 @@ export function Navbar() {
                 <LogOut className="h-4 w-4" />
                 Sign out
               </button>
-              <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                {user.firstName}
-              </span>
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.firstName} className="h-7 w-7 rounded-full object-cover" />
+              ) : (
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                  {user.firstName[0]}{user.lastName?.[0] ?? ''}
+                </span>
+              )}
             </>
           ) : (
             <>

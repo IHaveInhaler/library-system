@@ -52,8 +52,19 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-2 text-2xl font-bold text-gray-900 dark:text-white">My Dashboard</h1>
-      <p className="mb-8 text-gray-500 dark:text-gray-400">Welcome back, {user?.firstName}</p>
+      <div className="mb-8 flex items-center gap-4">
+        {user?.avatarUrl ? (
+          <img src={user.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+        ) : (
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+            {user?.firstName[0]}{user?.lastName?.[0] ?? ''}
+          </span>
+        )}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">My Dashboard</h1>
+          <p className="text-gray-500 dark:text-gray-400">Welcome back, {user?.firstName}</p>
+        </div>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3 mb-8">
         <StatCard icon={BookOpen} label="Active Loans" value={activeLoans.length} color="blue" />
