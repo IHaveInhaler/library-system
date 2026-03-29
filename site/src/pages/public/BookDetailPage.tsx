@@ -13,6 +13,7 @@ import { Input } from '../../components/ui/Input'
 import { Modal } from '../../components/ui/Modal'
 import { useAuth, useRole } from '../../hooks/useAuth'
 import { extractError } from '../../api/client'
+import { DamageWarningBanner } from '../../components/DamageWarningBanner'
 import { bookNotesApi, encryptNote, decryptNote } from '../../api/bookNotes'
 import type { BookCopy, Loan } from '../../types'
 
@@ -20,7 +21,7 @@ export default function BookDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { isMember } = useRole()
+  const { isMember, isLibrarian } = useRole()
   const qc = useQueryClient()
 
   const { data: book, isLoading } = useQuery({
@@ -129,6 +130,7 @@ export default function BookDetailPage() {
                 expanded={expandedCopy === copy.id}
                 onToggle={() => setExpandedCopy(expandedCopy === copy.id ? null : copy.id)}
                 canManage={hasStaffAccess(copy.shelf.library.id)}
+                isStaff={isLibrarian}
                 onLoan={() => setLoanModal(copy)}
               />
             ))}
@@ -175,18 +177,23 @@ function CopyRow({
   expanded,
   onToggle,
   canManage,
+  isStaff,
   onLoan,
 }: {
   copy: BookCopy
   expanded: boolean
   onToggle: () => void
   canManage: boolean
+  isStaff: boolean
   onLoan: () => void
 }) {
+  const navigate = useNavigate()
+  const [historyOpen, setHistoryOpen] = useState(false)
+
   const { data: loans } = useQuery({
     queryKey: ['loans', { bookCopyId: copy.id }],
     queryFn: () => loansApi.list({ bookCopyId: copy.id, limit: 10 }),
-    enabled: expanded,
+    enabled: expanded && isStaff && historyOpen,
   })
 
   return (
@@ -196,9 +203,8 @@ function CopyRow({
         onClick={onToggle}
       >
         <div className="flex items-center gap-3">
-          <span className="font-mono text-xs text-gray-600 dark:text-gray-400">{copy.barcode}</span>
           <span className="text-sm text-gray-500 dark:text-gray-400">{copy.shelf.library.name}</span>
-          <span className="text-xs text-gray-400 dark:text-gray-500">{copy.shelf.label}</span>
+          <span className="font-mono text-xs text-gray-400 dark:text-gray-500">{copy.shelf.code}</span>
         </div>
         <div className="flex items-center gap-3">
           <Badge label={copy.condition} variant="gray" />
@@ -232,29 +238,49 @@ function CopyRow({
             </div>
           </div>
 
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Loan History</p>
-          {!loans ? (
-            <p className="text-xs text-gray-400 dark:text-gray-500">Loading...</p>
-          ) : loans.data.length === 0 ? (
-            <p className="text-xs text-gray-400 dark:text-gray-500">No loan history for this copy.</p>
-          ) : (
-            <div className="space-y-2">
-              {loans.data.map((loan: Loan) => (
-                <div key={loan.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-700/40">
-                  <div className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5 text-gray-400" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      {canManage ? `${loan.user.firstName} ${loan.user.lastName}` : 'Member'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
-                      {new Date(loan.borrowedAt).toLocaleDateString()} — {loan.returnedAt ? new Date(loan.returnedAt).toLocaleDateString() : 'ongoing'}
-                    </span>
-                    <LoanStatusBadge status={loan.status} />
-                  </div>
-                </div>
-              ))}
+          {isStaff && (
+            <div>
+              <button
+                onClick={(e) => { e.stopPropagation(); setHistoryOpen(!historyOpen) }}
+                className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                Loan History{loans ? ` (${loans.data.length})` : ''}
+                <ChevronDown className={`h-3 w-3 transition-transform ${historyOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {historyOpen && (
+                <>
+                  {!loans ? (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">Loading...</p>
+                  ) : loans.data.length === 0 ? (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">No loan history for this copy.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {loans.data.map((loan: Loan) => (
+                        <div key={loan.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 dark:bg-gray-700/40">
+                          <div className="flex items-center gap-2">
+                            <User className="h-3.5 w-3.5 text-gray-400" />
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/manage/users?search=${encodeURIComponent(loan.user.email)}`) }}
+                              className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                              {loan.user.firstName} {loan.user.lastName}
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-400 dark:text-gray-500">
+                              {new Date(loan.borrowedAt).toLocaleDateString()} {'\u2192'} {loan.returnedAt ? new Date(loan.returnedAt).toLocaleDateString() : 'active'}
+                            </span>
+                            {loan.damageReports && loan.damageReports.length > 0 && (
+                              <Badge label={`${loan.damageReports.length} damage`} variant="red" />
+                            )}
+                            <LoanStatusBadge status={loan.status} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -423,6 +449,7 @@ function IssueLoanModal({
               )}
             </div>
           )}
+          {selectedUser && <DamageWarningBanner userId={selectedUser.id} />}
         </div>
 
         <Input label="Due date" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />

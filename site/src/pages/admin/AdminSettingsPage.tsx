@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users, Globe, IdCard, Palette, ShieldCheck, Barcode, Printer, Image as ImageIcon, Search } from 'lucide-react'
+import { ArrowLeft, Settings, Mail, Lock, AlertTriangle, Code2, Users, Globe, IdCard, Palette, ShieldCheck, Barcode, Printer, Image as ImageIcon, Search, ClipboardList, List } from 'lucide-react'
 import { settingsApi, type SettingKey } from '../../api/settings'
 import { groupsApi } from '../../api/groups'
 import { setupApi } from '../../api/setup'
@@ -294,6 +294,120 @@ function MembershipSettings() {
         </label>
         <div className="flex justify-end">
           <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Loan Settings Section ────────────────────────────────────────────────
+
+function LoanSettings() {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+
+  const [durationDays, setDurationDays] = useState('14')
+  const [renewalDays, setRenewalDays] = useState('7')
+  const [maxRenewals, setMaxRenewals] = useState('2')
+  const [renewalCutoffDays, setRenewalCutoffDays] = useState('14')
+  const [reservationExpiryDays, setReservationExpiryDays] = useState('3')
+
+  useEffect(() => {
+    if (data) {
+      setDurationDays(data.settings['loan.durationDays'] || '14')
+      setRenewalDays(data.settings['loan.renewalDays'] || '7')
+      setMaxRenewals(data.settings['loan.maxRenewals'] || '2')
+      setRenewalCutoffDays(data.settings['loan.renewalCutoffDays'] || '14')
+      setReservationExpiryDays(data.settings['loan.reservationExpiryDays'] || '3')
+    }
+  }, [data])
+
+  const save = useMutation({
+    mutationFn: () => settingsApi.update({
+      'loan.durationDays': durationDays,
+      'loan.renewalDays': renewalDays,
+      'loan.maxRenewals': maxRenewals,
+      'loan.renewalCutoffDays': renewalCutoffDays,
+      'loan.reservationExpiryDays': reservationExpiryDays,
+    }),
+    onSuccess: (res) => { toast.success('Loan settings saved'); qc.setQueryData(['settings'], res) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  if (isLoading) return <div className="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/40">
+          <ClipboardList className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-gray-900 dark:text-white">Loans &amp; Extensions</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Configure loan durations, extension limits, and overdue policies.</p>
+        </div>
+      </div>
+      <div className="space-y-4 p-6">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2 sm:col-span-1">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Default loan duration (days)</label>
+            <input
+              type="number"
+              min="1"
+              value={durationDays}
+              onChange={(e) => setDurationDays(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Extension duration (days)</label>
+            <input
+              type="number"
+              min="1"
+              value={renewalDays}
+              onChange={(e) => setRenewalDays(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2 sm:col-span-1">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Maximum extensions</label>
+            <input
+              type="number"
+              min="0"
+              value={maxRenewals}
+              onChange={(e) => setMaxRenewals(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Extension cutoff (days overdue)</label>
+            <input
+              type="number"
+              min="1"
+              value={renewalCutoffDays}
+              onChange={(e) => setRenewalCutoffDays(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Loans overdue by more than this many days cannot be extended</p>
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Reservation expiry (days)</label>
+          <input
+            type="number"
+            min="1"
+            value={reservationExpiryDays}
+            onChange={(e) => setReservationExpiryDays(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          />
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <Button onClick={() => save.mutate()} loading={save.isPending}>Save loan settings</Button>
         </div>
       </div>
     </div>
@@ -903,20 +1017,133 @@ function ImageUploadSettings() {
   )
 }
 
+// ── Book Conditions Section ──────────────────────────────────────────────
+
+function BookConditionsSettings() {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get })
+  const [conditions, setConditions] = useState<string[]>([])
+  const [newCondition, setNewCondition] = useState('')
+
+  useEffect(() => {
+    if (data) {
+      const raw = data.settings['copy.conditions']
+      try {
+        const parsed = JSON.parse(raw || '[]')
+        setConditions(Array.isArray(parsed) ? parsed : ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'])
+      } catch {
+        setConditions(['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'])
+      }
+    }
+  }, [data])
+
+  const save = useMutation({
+    mutationFn: () => settingsApi.update({ 'copy.conditions': JSON.stringify(conditions) }),
+    onSuccess: (res) => { toast.success('Conditions saved'); qc.setQueryData(['settings'], res) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const addCondition = () => {
+    const val = newCondition.trim().toUpperCase()
+    if (!val || conditions.includes(val)) return
+    setConditions([...conditions, val])
+    setNewCondition('')
+  }
+
+  const removeCondition = (index: number) => {
+    setConditions(conditions.filter((_, i) => i !== index))
+  }
+
+  const moveUp = (index: number) => {
+    if (index === 0) return
+    const arr = [...conditions]
+    ;[arr[index - 1], arr[index]] = [arr[index], arr[index - 1]]
+    setConditions(arr)
+  }
+
+  const moveDown = (index: number) => {
+    if (index === conditions.length - 1) return
+    const arr = [...conditions]
+    ;[arr[index], arr[index + 1]] = [arr[index + 1], arr[index]]
+    setConditions(arr)
+  }
+
+  if (isLoading) return <div className="text-sm text-gray-500 dark:text-gray-400">Loading...</div>
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="flex items-center gap-3 border-b border-gray-100 px-6 py-4 dark:border-gray-700">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
+          <List className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-gray-900 dark:text-white">Book Conditions</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Configure the condition options available for book copies.</p>
+        </div>
+      </div>
+      <div className="space-y-4 p-6">
+        <div className="space-y-2">
+          {conditions.map((c, i) => (
+            <div key={i} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-600 dark:bg-gray-700">
+              <span className="flex-1 text-sm font-medium text-gray-900 dark:text-white">{c}</span>
+              <button onClick={() => moveUp(i)} disabled={i === 0} className="rounded p-1 text-gray-400 hover:bg-gray-200 disabled:opacity-30 dark:hover:bg-gray-600">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+              </button>
+              <button onClick={() => moveDown(i)} disabled={i === conditions.length - 1} className="rounded p-1 text-gray-400 hover:bg-gray-200 disabled:opacity-30 dark:hover:bg-gray-600">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </button>
+              <button onClick={() => removeCondition(i)} className="rounded p-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={newCondition}
+            onChange={(e) => setNewCondition(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && addCondition()}
+            placeholder="Add condition…"
+            className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+          />
+          <Button variant="secondary" onClick={addCondition} disabled={!newCondition.trim()}>Add</Button>
+        </div>
+        <div className="flex justify-end">
+          <Button onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Factory Reset Section ──────────────────────────────────────────────────
 
 function FactoryResetSection() {
+  const [phase, setPhase] = useState<'confirm' | 'code'>('confirm')
   const [confirmText, setConfirmText] = useState('')
+  const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const clearAuth = useAuthStore((s) => s.clearAuth)
 
-  const handleReset = async () => {
+  const requestCode = async () => {
     if (confirmText !== 'confirm') return
     setLoading(true)
     try {
-      await setupApi.factoryReset()
+      await setupApi.factoryResetChallenge()
+      setPhase('code')
+    } catch (err) {
+      toast.error(extractError(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const executeReset = async () => {
+    if (code.length < 6) return
+    setLoading(true)
+    try {
+      await setupApi.factoryResetVerify(code)
       clearAuth()
-      // Navigate to root — the setup check will redirect to the wizard
       window.location.href = '/'
     } catch (err) {
       toast.error(extractError(err))
@@ -944,29 +1171,45 @@ function FactoryResetSection() {
           and audit logs</strong>. The system will return to the initial setup wizard.
         </div>
 
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Type <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-bold text-red-600 dark:bg-gray-700 dark:text-red-400">confirm</code> to proceed
-          </label>
-          <input
-            type="text"
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            placeholder="Type confirm"
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
-          />
-        </div>
+        {phase === 'confirm' && (
+          <>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Type <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-bold text-red-600 dark:bg-gray-700 dark:text-red-400">confirm</code> to proceed
+              </label>
+              <input type="text" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} placeholder="Type confirm"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500" />
+            </div>
+            <div className="flex justify-end">
+              <Button variant="danger" onClick={requestCode} loading={loading} disabled={confirmText !== 'confirm'}>
+                <AlertTriangle className="h-4 w-4" /> Continue
+              </Button>
+            </div>
+          </>
+        )}
 
-        <div className="flex justify-end">
-          <Button
-            variant="danger"
-            onClick={handleReset}
-            loading={loading}
-            disabled={confirmText !== 'confirm'}
-          >
-            <AlertTriangle className="h-4 w-4" /> Factory Reset
-          </Button>
-        </div>
+        {phase === 'code' && (
+          <>
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-700/50 dark:bg-blue-900/20">
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Check the server logs</p>
+              <p className="mt-1 text-xs text-blue-700 dark:text-blue-400">
+                A 6-digit confirmation code has been printed in the Docker Compose logs.
+                Run <code className="rounded bg-blue-100 px-1 dark:bg-blue-800">docker-compose logs -f api</code> to view it.
+              </p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Confirmation Code</label>
+              <input type="text" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter 6-digit code"
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => { setPhase('confirm'); setCode(''); setConfirmText('') }}>Cancel</Button>
+              <Button variant="danger" onClick={executeReset} loading={loading} disabled={code.length < 6}>
+                <AlertTriangle className="h-4 w-4" /> Factory Reset
+              </Button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -1094,6 +1337,8 @@ const SETTINGS_SECTIONS = [
   { key: 'general', keywords: ['general', 'app', 'base url', 'proxy'], component: GeneralSettings },
   { key: 'smtp', keywords: ['smtp', 'email', 'mail', 'host', 'port'], component: SmtpSettings },
   { key: 'membership', keywords: ['membership', 'calendar', 'months'], component: MembershipSettings },
+  { key: 'loans', keywords: ['loan', 'extension', 'extend', 'renewal', 'renew', 'overdue', 'duration', 'reservation', 'expiry'], component: LoanSettings },
+  { key: 'conditions', keywords: ['condition', 'book condition', 'damage', 'good', 'fair', 'poor'], component: BookConditionsSettings },
   { key: 'whitelabel', keywords: ['brand', 'white label', 'whitelabel', 'logo', 'color', 'favicon', 'app name'], component: WhiteLabelSettings },
   { key: 'registration', keywords: ['registration', 'signup', 'sign up', 'domain', 'token', 'approval', 'email confirmation'], component: RegistrationSettings },
   { key: '2fa', keywords: ['2fa', 'two factor', 'mfa', 'security key', 'authenticator', 'passkey'], component: TwoFactorSettings },

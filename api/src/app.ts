@@ -20,6 +20,7 @@ import groupsRouter from './modules/groups/groups.router'
 import auditRouter from './modules/audit/audit.router'
 import settingsRouter from './modules/settings/settings.router'
 import { getPublicSettings } from './modules/settings/settings.controller'
+import { getLoanConfig } from './modules/loans/loans.service'
 import uploadRoutes from './lib/uploadRoutes'
 import membershipTypesRouter from './modules/membershipTypes/membershipTypes.router'
 import categoriesRouter from './modules/categories/categories.router'
@@ -27,6 +28,7 @@ import barcodesRouter from './modules/barcodes/barcodes.router'
 import bookNotesRouter from './modules/bookNotes/bookNotes.router'
 import twoFactorRouter from './modules/twoFactor/twoFactor.router'
 import setupRouter from './modules/setup/setup.router'
+import damageReportsRouter from './modules/damageReports/damageReports.router'
 import backupsRouter from './modules/backups/backups.router'
 
 export function createApp() {
@@ -91,7 +93,14 @@ export function createApp() {
   app.use('/api/shelves', shelvesRouter)
   app.use('/api/books', booksRouter)
   app.use('/api/copies', bookCopiesRouter)
+  app.get('/api/loans/config', async (_req, res, next) => {
+    try {
+      const config = await getLoanConfig()
+      res.json(config)
+    } catch (err) { next(err) }
+  })
   app.use('/api/loans', authenticate, loansRouter)
+  app.use('/api/damage-reports', authenticate, damageReportsRouter)
   app.use('/api/reservations', authenticate, reservationsRouter)
   app.use('/api/permissions', permissionsRouter)
   app.use('/api/groups', groupsRouter)

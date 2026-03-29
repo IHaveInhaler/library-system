@@ -35,6 +35,12 @@ export type SettingKey =
   | 'print.zpl.labelWidth'
   | 'print.zpl.labelHeight'
   | 'print.ipp.printerUrl'
+  | 'loan.durationDays'
+  | 'loan.renewalDays'
+  | 'loan.maxRenewals'
+  | 'loan.renewalCutoffDays'
+  | 'loan.reservationExpiryDays'
+  | 'copy.conditions'
 
 export type SettingsResponse = {
   settings: Record<SettingKey, string>

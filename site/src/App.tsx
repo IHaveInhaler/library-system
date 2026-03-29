@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'sonner'
 import { Navbar } from './components/layout/Navbar'
+import { OverdueBanner } from './components/OverdueBanner'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { PageSpinner } from './components/ui/Spinner'
 import { setupApi } from './api/setup'
@@ -96,6 +97,7 @@ function AppRoutes() {
         path="*"
         element={
           <>
+            <OverdueBanner />
             <Navbar />
             <Routes>
               <Route path="/home" element={<HomePage />} />

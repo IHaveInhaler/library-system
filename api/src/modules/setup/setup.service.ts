@@ -8,6 +8,7 @@ import { generateShelfLabel } from '../../lib/shelfLabel'
 import { fetchByIsbn } from '../../lib/openLibrary'
 import { env } from '../../config/env'
 import { ForbiddenError, UnauthorizedError, ConflictError } from '../../errors'
+import { getSetting } from '../../lib/settings'
 
 // ── In-memory setup code store ──────────────────────────────────────────────
 
@@ -179,6 +180,14 @@ export async function resumeExisting() {
 }
 
 export async function completeSetup() {
+  // Ensure built-in membership types exist
+  await Promise.all([
+    prisma.membershipType.upsert({ where: { name: 'STAFF' }, create: { name: 'STAFF', label: 'Staff', isStaff: true, isBuiltIn: true, order: 1 }, update: {} }),
+    prisma.membershipType.upsert({ where: { name: 'PERMANENT' }, create: { name: 'PERMANENT', label: 'Permanent', isBuiltIn: false, order: 2 }, update: {} }),
+    prisma.membershipType.upsert({ where: { name: 'YEARLY' }, create: { name: 'YEARLY', label: 'Yearly', durationDays: 365, isBuiltIn: false, order: 3 }, update: {} }),
+    prisma.membershipType.upsert({ where: { name: 'MONTHLY' }, create: { name: 'MONTHLY', label: 'Monthly', durationDays: 30, isBuiltIn: false, order: 4 }, update: {} }),
+  ])
+
   await prisma.systemSetting.upsert({
     where: { key: 'setup.completed' },
     create: { key: 'setup.completed', value: 'true' },
@@ -197,9 +206,22 @@ export async function setDevMode(enabled: boolean) {
 }
 
 export async function devSeed() {
-  if (process.env.NODE_ENV !== 'development') {
-    throw new ForbiddenError('Dev seed is only available in development mode')
+  // Only allow dev seed during initial setup (no admin exists yet) or when dev mode is enabled
+  const adminCount = await prisma.user.count({ where: { role: 'ADMIN' } })
+  if (adminCount > 0) {
+    const devEnabled = await getSetting('dev.enabled')
+    if (devEnabled !== 'true') {
+      throw new ForbiddenError('Dev seed requires dev mode to be enabled (or run during initial setup)')
+    }
   }
+
+  // Ensure built-in membership types exist (they're inserted by migration but deleted by factory reset)
+  await Promise.all([
+    prisma.membershipType.upsert({ where: { name: 'STAFF' }, create: { name: 'STAFF', label: 'Staff', isStaff: true, isBuiltIn: true, order: 1 }, update: {} }),
+    prisma.membershipType.upsert({ where: { name: 'PERMANENT' }, create: { name: 'PERMANENT', label: 'Permanent', isBuiltIn: false, order: 2 }, update: {} }),
+    prisma.membershipType.upsert({ where: { name: 'YEARLY' }, create: { name: 'YEARLY', label: 'Yearly', durationDays: 365, isBuiltIn: false, order: 3 }, update: {} }),
+    prisma.membershipType.upsert({ where: { name: 'MONTHLY' }, create: { name: 'MONTHLY', label: 'Monthly', durationDays: 30, isBuiltIn: false, order: 4 }, update: {} }),
+  ])
 
   // Seed dev accounts, libraries, shelves, books
   const [adminHash, librarianHash, memberHash] = await Promise.all([
@@ -287,7 +309,7 @@ export async function devSeed() {
   }
   const [book1, book2, book3] = books
 
-  await Promise.all([
+  const [copy1] = await Promise.all([
     prisma.bookCopy.create({ data: { barcode: 'CC-GG-001', bookId: book1.id, shelfId: shelf1.id } }),
     prisma.bookCopy.create({ data: { barcode: 'CC-GG-002', bookId: book1.id, shelfId: shelf1.id } }),
     prisma.bookCopy.create({ data: { barcode: 'WB-GG-001', bookId: book1.id, shelfId: shelf4.id } }),
@@ -295,6 +317,31 @@ export async function devSeed() {
     prisma.bookCopy.create({ data: { barcode: 'CC-PP-001', bookId: book3.id, shelfId: shelf3.id } }),
     prisma.bookCopy.create({ data: { barcode: 'CC-PP-002', bookId: book3.id, shelfId: shelf3.id } }),
   ])
+
+  // Overdue loan for member (for testing the overdue banner)
+  const overdueDue = new Date()
+  overdueDue.setDate(overdueDue.getDate() - 7)
+  await prisma.loan.create({
+    data: {
+      userId: member.id,
+      bookCopyId: copy1.id,
+      issuedById: admin.id,
+      borrowedAt: new Date(overdueDue.getTime() - 14 * 24 * 60 * 60 * 1000),
+      dueDate: overdueDue,
+      status: 'OVERDUE',
+      notes: 'Seeded overdue loan for testing',
+      notesEditedBy: JSON.stringify([{ id: admin.id, name: 'admin@library.com', at: new Date().toISOString() }]),
+      conditionAtCheckout: 'GOOD',
+    },
+  })
+  await prisma.bookCopy.update({ where: { id: copy1.id }, data: { status: 'ON_LOAN' } })
+
+  // Seed copy.conditions setting
+  await prisma.systemSetting.upsert({
+    where: { key: 'copy.conditions' },
+    create: { key: 'copy.conditions', value: JSON.stringify(['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED']) },
+    update: {},
+  })
 
   // Enable dev mode + mark seeded + mark setup complete
   await Promise.all([

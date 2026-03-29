@@ -12,7 +12,8 @@ export const createAdminSchema = z.object({
 })
 
 export const factoryResetSchema = z.object({
-  confirm: z.literal('FACTORY_RESET'),
+  step: z.enum(['challenge', 'verify']),
+  code: z.string().length(6).optional(),
 })
 
 export type VerifyCodeInput = z.infer<typeof verifyCodeSchema>

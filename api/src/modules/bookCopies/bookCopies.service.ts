@@ -9,6 +9,19 @@ import {
   CopyQueryInput,
 } from './bookCopies.schemas'
 
+const DEFAULT_CONDITIONS = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED']
+
+export async function getConditions(): Promise<string[]> {
+  const raw = await getSetting('copy.conditions')
+  if (!raw) return DEFAULT_CONDITIONS
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_CONDITIONS
+  } catch {
+    return DEFAULT_CONDITIONS
+  }
+}
+
 const copyInclude = {
   book: { select: { id: true, title: true, author: true, isbn: true, genre: true } },
   shelf: {

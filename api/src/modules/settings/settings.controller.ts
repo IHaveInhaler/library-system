@@ -38,6 +38,12 @@ const ALLOWED_KEYS = [
   'print.zpl.labelWidth',
   'print.zpl.labelHeight',
   'print.ipp.printerUrl',
+  'loan.durationDays',
+  'loan.renewalDays',
+  'loan.maxRenewals',
+  'loan.renewalCutoffDays',
+  'loan.reservationExpiryDays',
+  'copy.conditions',
 ]
 
 async function buildSettingsResponse() {
@@ -68,7 +74,7 @@ async function buildSettingsResponse() {
 // Public endpoint — returns only registration-related settings (no auth required)
 export async function getPublicSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const PUBLIC_KEYS = ['reg.mode', 'reg.allowedDomain', 'brand.appName', 'brand.logoUrl', 'brand.primaryColor', 'brand.faviconUrl']
+    const PUBLIC_KEYS = ['reg.mode', 'reg.allowedDomain', 'brand.appName', 'brand.logoUrl', 'brand.primaryColor', 'brand.faviconUrl', 'loan.durationDays', 'loan.renewalDays', 'loan.maxRenewals', 'loan.renewalCutoffDays', 'loan.reservationExpiryDays']
     const rows = await prisma.systemSetting.findMany({ where: { key: { in: PUBLIC_KEYS } } })
     const settings: Record<string, string> = {}
     for (const row of rows) settings[row.key] = row.value
@@ -108,6 +114,8 @@ const KEY_PERMISSIONS: Record<string, string> = {
   'barcode.': 'CONFIGURE_BARCODES',
   'print.': 'CONFIGURE_BARCODES',
   'images.': 'CONFIGURE_IMAGES',
+  'loan.': 'CONFIGURE_GENERAL',
+  'copy.': 'CONFIGURE_GENERAL',
   'dev.': 'ADMIN', // Dev mode is admin-only, not permission-based
 }
 

@@ -582,12 +582,40 @@ Requires: `ISSUE_LOANS`
 
 ### `PATCH /api/loans/:id/return`
 Requires: `RETURN_LOANS`
+Body (optional): `{ condition?: string, copyStatus?: "AVAILABLE" | "DAMAGED" | "RETIRED", reportDamage?: boolean, damageDescription?: string }`
+Updates copy condition/status on return. If `reportDamage` is true, creates a `STAFF_RETURN` damage report.
 
 ### `PATCH /api/loans/:id/renew`
 Extends the due date by 14 days (once per loan).
 
 ### `PATCH /api/loans/:id/overdue`
 Requires: ADMIN role. Marks loan as OVERDUE.
+
+---
+
+## Damage Reports
+
+All routes require authentication.
+
+### `GET /api/damage-reports`
+Requires: LIBRARIAN or ADMIN role.
+Query: `?page=1&limit=20&loanId=&bookCopyId=&userId=`
+Returns: `PaginatedResponse<DamageReport>`
+
+### `POST /api/damage-reports`
+Body: `{ loanId, bookCopyId, type: "STAFF_RETURN" | "STAFF_REPORT" | "MEMBER_REPORT", conditionBefore?, conditionAfter?, description? }`
+- `STAFF_RETURN` / `STAFF_REPORT`: requires staff access
+- `MEMBER_REPORT`: requires loan ownership (member can only report damage on their own loans)
+
+### `GET /api/damage-reports/loan/:loanId`
+Returns all damage reports for a loan.
+
+### `GET /api/damage-reports/user/:userId`
+Requires: LIBRARIAN or ADMIN role.
+Returns: `{ count: number, reports: DamageReport[] }` (only `STAFF_RETURN` and `STAFF_REPORT` types)
+
+### `GET /api/damage-reports/:id`
+Requires: LIBRARIAN or ADMIN role.
 
 ---
 
@@ -760,6 +788,16 @@ Stored as `SystemSetting` keys, configurable in `/admin/settings`:
 | `brand.faviconUrl` | — | URL to a custom favicon |
 
 The frontend reads these from `GET /api/settings/public` (no auth required) and applies them on load.
+
+---
+
+## Book Conditions
+
+Configurable via `copy.conditions` setting (JSON array). Default: `["NEW","GOOD","FAIR","POOR","DAMAGED"]`.
+
+Managed in `/admin/settings` under "Book Conditions" section. Used for all condition dropdowns (copy creation, copy edit, return flow).
+
+The `GET /api/loans/config` endpoint includes a `conditions` array in its response.
 
 ---
 

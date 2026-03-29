@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express'
+import crypto from 'crypto'
 import * as setupService from './setup.service'
 import { logAction } from '../../lib/audit'
 
@@ -106,16 +107,51 @@ export async function setDevMode(req: Request, res: Response, next: NextFunction
   }
 }
 
+// In-memory factory reset codes
+const resetCodes = new Map<string, { code: string; expiresAt: Date }>()
+
 export async function factoryReset(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    await logAction({
-      actorId: req.user?.id,
-      actorName: req.user?.email,
-      action: 'FACTORY_RESET',
-    })
+    const { step, code } = req.body as { step: string; code?: string }
 
-    const result = await setupService.factoryReset()
-    res.json(result)
+    if (step === 'challenge') {
+      const resetCode = crypto.randomInt(100000, 999999).toString()
+      resetCodes.set(req.user!.id, { code: resetCode, expiresAt: new Date(Date.now() + 10 * 60 * 1000) })
+
+      console.log('')
+      console.log('╔══════════════════════════════════════════╗')
+      console.log('║         FACTORY RESET CODE               ║')
+      console.log('║                                          ║')
+      console.log(`║          Code:  ${resetCode}                ║`)
+      console.log('║                                          ║')
+      console.log('║   Enter this code to confirm reset.      ║')
+      console.log('║   Expires in 10 minutes.                 ║')
+      console.log('╚══════════════════════════════════════════╝')
+      console.log('')
+
+      res.json({ message: 'A factory reset code has been printed in the server logs.' })
+      return
+    }
+
+    if (step === 'verify') {
+      const stored = resetCodes.get(req.user!.id)
+      if (!stored || stored.expiresAt < new Date()) {
+        res.status(400).json({ code: 'EXPIRED', message: 'Code expired. Start again.' })
+        return
+      }
+      if (stored.code !== code) {
+        res.status(403).json({ code: 'FORBIDDEN', message: 'Invalid code' })
+        return
+      }
+      resetCodes.delete(req.user!.id)
+
+      await logAction({ actorId: req.user?.id, actorName: req.user?.email, action: 'FACTORY_RESET' })
+      const result = await setupService.factoryReset()
+      res.json(result)
+      return
+    }
+
+    res.status(400).json({ code: 'VALIDATION_ERROR', message: 'step must be "challenge" or "verify"' })
   } catch (err) {
     next(err)
   }

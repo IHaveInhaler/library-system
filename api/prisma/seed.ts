@@ -160,7 +160,7 @@ async function main() {
   ])
 
   // Book Copies
-  await Promise.all([
+  const [copy1] = await Promise.all([
     prisma.bookCopy.create({ data: { barcode: 'CC-GG-001', bookId: book1.id, shelfId: shelf1.id } }),
     prisma.bookCopy.create({ data: { barcode: 'CC-GG-002', bookId: book1.id, shelfId: shelf1.id } }),
     prisma.bookCopy.create({ data: { barcode: 'WB-GG-001', bookId: book1.id, shelfId: shelf4.id } }),
@@ -168,6 +168,31 @@ async function main() {
     prisma.bookCopy.create({ data: { barcode: 'CC-PP-001', bookId: book3.id, shelfId: shelf3.id } }),
     prisma.bookCopy.create({ data: { barcode: 'CC-PP-002', bookId: book3.id, shelfId: shelf3.id } }),
   ])
+
+  // Overdue loan for member (for testing the overdue banner)
+  const overdueDue = new Date()
+  overdueDue.setDate(overdueDue.getDate() - 7)
+  await prisma.loan.create({
+    data: {
+      userId: member.id,
+      bookCopyId: copy1.id,
+      issuedById: admin.id,
+      borrowedAt: new Date(overdueDue.getTime() - 14 * 24 * 60 * 60 * 1000),
+      dueDate: overdueDue,
+      status: 'OVERDUE',
+      notes: 'Seeded overdue loan for testing',
+      notesEditedBy: JSON.stringify([{ id: admin.id, name: 'admin@library.com', at: new Date().toISOString() }]),
+      conditionAtCheckout: 'GOOD',
+    },
+  })
+  await prisma.bookCopy.update({ where: { id: copy1.id }, data: { status: 'ON_LOAN' } })
+
+  // Seed copy.conditions setting
+  await prisma.systemSetting.upsert({
+    where: { key: 'copy.conditions' },
+    create: { key: 'copy.conditions', value: JSON.stringify(['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED']) },
+    update: {},
+  })
 
   console.log('Seed complete.')
   console.log('  Admin:     admin@library.com     / Admin1234!')

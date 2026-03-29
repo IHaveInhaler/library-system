@@ -40,5 +40,6 @@ export const setupApi = {
   setDevMode: (enabled: boolean) =>
     api.post<{ devMode: boolean }>('/setup/dev-mode', { enabled }).then((r) => r.data),
 
-  factoryReset: () => api.post('/setup/factory-reset').then((r) => r.data),
+  factoryResetChallenge: () => api.post('/setup/factory-reset', { step: 'challenge' }).then((r) => r.data),
+  factoryResetVerify: (code: string) => api.post('/setup/factory-reset', { step: 'verify', code }).then((r) => r.data),
 }

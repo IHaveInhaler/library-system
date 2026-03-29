@@ -25,7 +25,8 @@ model User {
   createdAt           DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  loans              Loan[]
+  loans              Loan[]   @relation("borrower")
+  issuedLoans        Loan[]   @relation("issuer")
   reservations       Reservation[]
   refreshTokens      RefreshToken[]
   memberships        LibraryMembership[]
@@ -34,6 +35,7 @@ model User {
   emailVerifications  EmailVerification[]
   securityKeys       SecurityKey[]
   bookNotes          BookNote[]
+  damageReports      DamageReport[] @relation("damageReporter")
 }
 
 model SecurityKey {
@@ -214,24 +216,50 @@ model BookCopy {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  loans        Loan[]
-  reservations Reservation[]
+  loans          Loan[]
+  reservations   Reservation[]
+  damageReports  DamageReport[]
 }
 
 model Loan {
-  id         String    @id @default(uuid())
-  userId     String
-  user       User      @relation(fields: [userId], references: [id])
-  bookCopyId String
-  bookCopy   BookCopy  @relation(fields: [bookCopyId], references: [id])
-  status     String    @default("ACTIVE") // ACTIVE | RETURNED | OVERDUE
-  borrowedAt DateTime  @default(now())
-  dueDate    DateTime
-  returnedAt DateTime?
-  renewCount Int       @default(0)
-  notes      String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id             String    @id @default(uuid())
+  userId         String
+  user           User      @relation("borrower", fields: [userId], references: [id])
+  bookCopyId     String
+  bookCopy       BookCopy  @relation(fields: [bookCopyId], references: [id])
+  issuedById     String?
+  issuedBy       User?     @relation("issuer", fields: [issuedById], references: [id])
+  status         String    @default("ACTIVE") // ACTIVE | RETURNED | OVERDUE
+  borrowedAt     DateTime  @default(now())
+  dueDate        DateTime
+  returnedAt     DateTime?
+  renewCount     Int       @default(0)
+  notes               String?
+  notesEditedBy       String?   // JSON: [{id, name, at}]
+  conditionAtCheckout String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  damageReports DamageReport[]
+}
+
+model DamageReport {
+  id              String   @id @default(uuid())
+  loanId          String
+  loan            Loan     @relation(fields: [loanId], references: [id])
+  bookCopyId      String
+  bookCopy        BookCopy @relation(fields: [bookCopyId], references: [id])
+  reportedById    String
+  reportedBy      User     @relation("damageReporter", fields: [reportedById], references: [id])
+  type            String   // STAFF_RETURN | STAFF_REPORT | MEMBER_REPORT
+  conditionBefore String?
+  conditionAfter  String?
+  description     String?
+  resolvedAt      DateTime?
+  resolvedById    String?
+  resolvedNote    String?
+  resolution      String?   // DISMISSED | WARNING | CONFIRMED
+  createdAt       DateTime @default(now())
 }
 
 model RolePermission {

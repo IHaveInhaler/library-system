@@ -103,7 +103,7 @@ export interface Book {
 export interface BookCopy {
   id: string
   barcode: string
-  condition: 'GOOD' | 'FAIR' | 'POOR'
+  condition: string
   status: CopyStatus
   bookId: string
   book: { id: string; title: string; author: string; isbn: string; genre: Genre }
@@ -119,15 +119,38 @@ export interface Loan {
   userId: string
   user: { id: string; firstName: string; lastName: string; email: string }
   bookCopyId: string
-  bookCopy: { id: string; barcode: string; book: { id: string; title: string; author: string; isbn: string }; shelf: { id: string; library: { id: string; name: string } } }
+  bookCopy: { id: string; barcode: string; condition: string; book: { id: string; title: string; author: string; isbn: string }; shelf: { id: string; library: { id: string; name: string } } }
+  issuedById?: string
+  issuedBy?: { id: string; firstName: string; lastName: string; email: string }
   status: LoanStatus
   borrowedAt: string
   dueDate: string
   returnedAt?: string
   renewCount: number
   notes?: string
+  notesEditedBy?: Array<{ id: string; name: string; at: string }>
+  conditionAtCheckout?: string
+  damageReports?: DamageReport[]
   createdAt: string
   updatedAt: string
+}
+
+export interface DamageReport {
+  id: string
+  loanId: string
+  bookCopyId: string
+  bookCopy?: { id: string; book: { id: string; title: string; author: string; isbn: string } }
+  reportedById: string
+  reportedBy: { id: string; firstName: string; lastName: string; email: string }
+  type: 'STAFF_RETURN' | 'STAFF_REPORT' | 'MEMBER_REPORT'
+  conditionBefore?: string
+  conditionAfter?: string
+  description?: string
+  resolvedAt?: string
+  resolvedById?: string
+  resolvedNote?: string
+  resolution?: 'DISMISSED' | 'WARNING' | 'CONFIRMED'
+  createdAt: string
 }
 
 export interface Reservation {

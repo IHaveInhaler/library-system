@@ -1,15 +1,20 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { BookOpen, Clock, Bookmark } from 'lucide-react'
+import { BookOpen, Clock, Bookmark, ShieldAlert } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { usersApi } from '../../api/users'
 import { loansApi } from '../../api/loans'
+import { damageReportsApi } from '../../api/damageReports'
 import { reservationsApi } from '../../api/reservations'
+import { settingsApi } from '../../api/settings'
 import { PageSpinner } from '../../components/ui/Spinner'
 import { LoanStatusBadge, ReservationStatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
+import { Modal } from '../../components/ui/Modal'
 import { extractError } from '../../api/client'
+import type { Loan } from '../../types'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -20,6 +25,12 @@ export default function DashboardPage() {
     queryFn: () => usersApi.loans(user!.id),
     enabled: !!user,
   })
+
+  const { data: settingsData } = useQuery({
+    queryKey: ['settings', 'public'],
+    queryFn: () => settingsApi.getPublic(),
+  })
+  const maxRenewals = Number(settingsData?.settings['loan.maxRenewals'] || 2)
 
   const { data: reservations } = useQuery({
     queryKey: ['users', user?.id, 'reservations'],
@@ -42,6 +53,20 @@ export default function DashboardPage() {
       toast.success('Reservation cancelled')
       qc.invalidateQueries({ queryKey: ['users', user?.id, 'reservations'] as const })
     },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const [reportLoan, setReportLoan] = useState<Loan | null>(null)
+  const [damageDesc, setDamageDesc] = useState('')
+
+  const reportDamage = useMutation({
+    mutationFn: () => damageReportsApi.create({
+      loanId: reportLoan!.id,
+      bookCopyId: reportLoan!.bookCopyId,
+      type: 'MEMBER_REPORT',
+      description: damageDesc,
+    }),
+    onSuccess: () => { toast.success('Damage reported — staff will review'); setReportLoan(null); setDamageDesc(''); qc.invalidateQueries({ queryKey: ['loans'] }) },
     onError: (err) => toast.error(extractError(err)),
   })
 
@@ -85,6 +110,7 @@ export default function DashboardPage() {
               <thead className="bg-gray-50 text-xs font-medium uppercase text-gray-500 dark:bg-gray-700/60 dark:text-gray-400">
                 <tr>
                   <th className="px-4 py-3 text-left">Book</th>
+                  <th className="px-4 py-3 text-left">Condition</th>
                   <th className="px-4 py-3 text-left">Due</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Renewals</th>
@@ -95,13 +121,19 @@ export default function DashboardPage() {
                 {activeLoans.map((loan) => (
                   <tr key={loan.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
                     <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{loan.bookCopy.book.title}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{loan.conditionAtCheckout || '—'}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(loan.dueDate).toLocaleDateString()}</td>
                     <td className="px-4 py-3"><LoanStatusBadge status={loan.status} /></td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{loan.renewCount} / 2</td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{loan.renewCount} / {maxRenewals}</td>
                     <td className="px-4 py-3 text-right">
-                      <Button size="sm" variant="secondary" onClick={() => renew.mutate(loan.id)} loading={renew.isPending}>
-                        Renew
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => setReportLoan(loan)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-amber-500 dark:hover:bg-gray-700" title="Report damage">
+                          <ShieldAlert className="h-4 w-4" />
+                        </button>
+                        <Button size="sm" variant="secondary" onClick={() => renew.mutate(loan.id)} loading={renew.isPending} disabled={loan.renewCount >= maxRenewals}>
+                          {loan.renewCount >= maxRenewals ? 'Limit reached' : 'Extend'}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -144,6 +176,29 @@ export default function DashboardPage() {
           </div>
         )}
       </section>
+
+      {reportLoan && (
+        <Modal open={!!reportLoan} onClose={() => { setReportLoan(null); setDamageDesc('') }} title="Report Damage" size="sm">
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Report damage to <span className="font-medium text-gray-900 dark:text-white">{reportLoan.bookCopy.book.title}</span>. Staff will review when the book is returned.
+            </p>
+            <textarea
+              value={damageDesc}
+              onChange={(e) => setDamageDesc(e.target.value)}
+              rows={3}
+              placeholder="Describe what happened..."
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => { setReportLoan(null); setDamageDesc('') }}>Cancel</Button>
+              <Button onClick={() => reportDamage.mutate()} loading={reportDamage.isPending} disabled={!damageDesc.trim()}>
+                Submit Report
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

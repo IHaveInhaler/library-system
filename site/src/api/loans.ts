@@ -10,7 +10,13 @@ export const loansApi = {
   create: (data: { userId: string; bookCopyId: string; dueDate: string; notes?: string }) =>
     api.post<Loan>('/loans', data).then((r) => r.data),
 
-  return: (id: string) => api.patch<Loan>(`/loans/${id}/return`).then((r) => r.data),
+  update: (id: string, data: { notes?: string }) =>
+    api.patch<Loan>(`/loans/${id}`, data).then((r) => r.data),
+
+  return: (id: string, data?: { condition?: string; copyStatus?: string; reportDamage?: boolean; damageDescription?: string }) =>
+    api.patch<Loan>(`/loans/${id}/return`, data).then((r) => r.data),
 
   renew: (id: string) => api.patch<Loan>(`/loans/${id}/renew`).then((r) => r.data),
+
+  markOverdue: (id: string) => api.patch<Loan>(`/loans/${id}/overdue`).then((r) => r.data),
 }

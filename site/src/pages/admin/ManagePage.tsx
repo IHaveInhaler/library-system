@@ -4,6 +4,7 @@ import { BookOpen, Library, Users, ClipboardList, Bookmark, Tag, Layers, Scan, B
 import { booksApi } from '../../api/books'
 import { loansApi } from '../../api/loans'
 import { reservationsApi } from '../../api/reservations'
+import { ScanBar } from '../../components/ScanBar'
 
 export default function ManagePage() {
   const { data: activeLoans } = useQuery({
@@ -47,7 +48,9 @@ export default function ManagePage() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-8 text-2xl font-bold text-gray-900 dark:text-white">Manage</h1>
+      <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">Manage</h1>
+
+      <ScanBar />
 
       <div className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (

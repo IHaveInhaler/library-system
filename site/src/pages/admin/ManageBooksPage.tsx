@@ -18,7 +18,7 @@ import { Badge, CopyStatusBadge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
-import { extractError } from '../../api/client'
+import { api, extractError } from '../../api/client'
 import { LoanStatusBadge, ReservationStatusBadge } from '../../components/ui/Badge'
 import type { Book, BookCopy, Loan, Reservation, User } from '../../types'
 
@@ -66,6 +66,12 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
     onSuccess: () => { toast.success('Cover removed'); qc.invalidateQueries({ queryKey: ['books'] }) },
     onError: (err) => toast.error(extractError(err)),
   })
+
+  const { data: loanConfig } = useQuery({
+    queryKey: ['loan-config'],
+    queryFn: () => api.get('/loans/config').then((r: any) => r.data),
+  })
+  const conditions: string[] = loanConfig?.conditions ?? ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED']
 
   // ── Copies tab ──
   const { data: copies, refetch: refetchCopies } = useQuery({
@@ -383,7 +389,7 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Condition</label>
                     <select value={copyForm.condition} onChange={(e) => setCopyForm({ ...copyForm, condition: e.target.value })}
                       className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-                      {['GOOD', 'FAIR', 'POOR'].map((c) => <option key={c} value={c}>{c}</option>)}
+                      {conditions.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
 

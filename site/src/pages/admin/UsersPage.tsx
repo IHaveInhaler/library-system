@@ -1,8 +1,8 @@
 import { useState, useCallback, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Users, Plus, X, ChevronRight, BookOpen, Bookmark, Library, Search } from 'lucide-react'
+import { Users, Plus, X, ChevronRight, ChevronDown, BookOpen, Bookmark, Library, Search, ShieldAlert, ExternalLink } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { usersApi } from '../../api/users'
 import { auditApi } from '../../api/audit'
@@ -21,6 +21,10 @@ import { Input } from '../../components/ui/Input'
 import { extractError } from '../../api/client'
 import type { User, Loan, Reservation, LibraryMembership, AuditLog } from '../../types'
 import { groupsApi } from '../../api/groups'
+import { damageReportsApi } from '../../api/damageReports'
+import { DamageWarningBanner } from '../../components/DamageWarningBanner'
+import { copiesApi } from '../../api/copies'
+import { api } from '../../api/client'
 
 function useGroups() {
   return useQuery({ queryKey: ['groups'], queryFn: groupsApi.list, staleTime: 60_000 })
@@ -125,6 +129,7 @@ function IssueLoanForUserModal({ user, open, onClose }: { user: User; open: bool
           <p className="text-sm font-medium text-gray-900 dark:text-white">{user.firstName} {user.lastName}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
         </div>
+        <DamageWarningBanner userId={user.id} />
 
         {/* Book picker */}
         <div>
@@ -451,6 +456,61 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
     onError: (err) => toast.error(extractError(err)),
   })
 
+  const { data: damageInfo } = useQuery({
+    queryKey: ['users', user.id, 'damage'],
+    queryFn: () => damageReportsApi.forUser(user.id),
+  })
+  const navigate = useNavigate()
+  const [damageExpanded, setDamageExpanded] = useState(false)
+  const [loanPage, setLoanPage] = useState(1)
+  const [reservationPage, setReservationPage] = useState(1)
+  const [addDamageForLoan, setAddDamageForLoan] = useState<Loan | null>(null)
+  const [newDamageDesc, setNewDamageDesc] = useState('')
+  const [newDamageCondition, setNewDamageCondition] = useState('')
+  const [damagePage, setDamagePage] = useState(1)
+  const [removeReportId, setRemoveReportId] = useState<string | null>(null)
+  const [removeReason, setRemoveReason] = useState('')
+
+  const { data: loanConfig } = useQuery({
+    queryKey: ['loan-config'],
+    queryFn: () => api.get('/loans/config').then((r: any) => r.data),
+  })
+  const conditions: string[] = loanConfig?.conditions ?? ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED']
+
+  const addDamageMutation = useMutation({
+    mutationFn: async () => {
+      if (newDamageCondition && addDamageForLoan && newDamageCondition !== addDamageForLoan.bookCopy.condition) {
+        await copiesApi.update(addDamageForLoan.bookCopyId, { condition: newDamageCondition })
+      }
+      return damageReportsApi.create({
+        loanId: addDamageForLoan!.id,
+        bookCopyId: addDamageForLoan!.bookCopyId,
+        type: 'STAFF_REPORT',
+        conditionBefore: addDamageForLoan!.bookCopy.condition,
+        conditionAfter: newDamageCondition || undefined,
+        description: newDamageDesc,
+      })
+    },
+    onSuccess: () => { toast.success('Damage reported'); setAddDamageForLoan(null); setNewDamageDesc(''); setNewDamageCondition(''); qc.invalidateQueries({ queryKey: ['users', user.id] }); qc.invalidateQueries({ queryKey: ['loans'] }) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const resolveDamageMutation = useMutation({
+    mutationFn: ({ id, resolution, note }: { id: string; resolution: 'DISMISSED' | 'WARNING' | 'CONFIRMED'; note?: string }) =>
+      damageReportsApi.resolve(id, resolution, note),
+    onSuccess: () => { toast.success('Report resolved'); qc.invalidateQueries({ queryKey: ['users', user.id] }); qc.invalidateQueries({ queryKey: ['loans'] }) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  const resolveAllMutation = useMutation({
+    mutationFn: async (resolution: 'DISMISSED' | 'WARNING' | 'CONFIRMED') => {
+      if (!damageInfo?.reports) return
+      await Promise.all(damageInfo.reports.filter((r: any) => !r.resolvedAt).map((r: any) => damageReportsApi.resolve(r.id, resolution)))
+    },
+    onSuccess: () => { toast.success('All reports resolved'); qc.invalidateQueries({ queryKey: ['users', user.id] }); qc.invalidateQueries({ queryKey: ['loans'] }) },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
   const { data: loans } = useQuery({
     queryKey: ['users', user.id, 'loans'],
     queryFn: () => usersApi.loans(user.id),
@@ -542,6 +602,41 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Confirmed Damage Warning — only shows confirmed reports */}
+        {damageInfo && damageInfo.count.confirmed > 0 && (() => {
+          const confirmedReports = damageInfo.reports.filter((r: any) => r.resolution === 'CONFIRMED')
+          return (
+          <div className="border-b border-gray-200 px-6 py-3 dark:border-gray-700">
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-700/50 dark:bg-red-900/20">
+              <button onClick={() => setDamageExpanded(!damageExpanded)} className="flex w-full items-center gap-2">
+                <ShieldAlert className="h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
+                <span className="flex-1 text-left text-sm font-medium text-red-700 dark:text-red-300">
+                  {damageInfo.count.confirmed} confirmed damage report{damageInfo.count.confirmed !== 1 ? 's' : ''}
+                </span>
+                <ChevronDown className={`h-4 w-4 text-red-400 transition-transform ${damageExpanded ? 'rotate-180' : ''}`} />
+              </button>
+              {damageExpanded && (
+                <div className="mt-3 space-y-2 border-t border-red-200 pt-3 dark:border-red-700/50">
+                  {confirmedReports.map((dr: any) => (
+                    <div key={dr.id} className="rounded-lg bg-red-100/50 px-2.5 py-2 text-xs dark:bg-red-900/20">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-900 dark:text-white">{dr.bookCopy?.book.title}</span>
+                        <span className="text-gray-400">{new Date(dr.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      {dr.conditionBefore && dr.conditionAfter && (
+                        <p className="text-gray-500 dark:text-gray-400">{dr.conditionBefore} → {dr.conditionAfter}</p>
+                      )}
+                      {dr.description && <p className="text-gray-600 dark:text-gray-300">{dr.description}</p>}
+                      {dr.resolvedNote && <p className="mt-0.5 text-red-600 dark:text-red-400">Note: {dr.resolvedNote}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          )
+        })()}
 
         {/* Tabs */}
         <div className="flex border-b border-gray-200 dark:border-gray-700">
@@ -762,7 +857,11 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
           )}
 
           {/* ── Loans ── */}
-          {tab === 'loans' && (
+          {tab === 'loans' && (() => {
+            const perPage = 3
+            const paged = loans ? loans.slice((loanPage - 1) * perPage, loanPage * perPage) : []
+            const totalLoanPages = loans ? Math.ceil(loans.length / perPage) : 1
+            return (
             <div className="space-y-4">
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Books currently on loan or previously borrowed by this user.
@@ -773,47 +872,237 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                   <p className="text-sm text-gray-500 dark:text-gray-400">No loans.</p>
                 </div>
               ) : (
+                <>
                 <div className="space-y-2">
-                  {loans.map((loan: Loan) => (
-                    <div key={loan.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                      <div className="flex items-center gap-3">
-                        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${
-                          loan.status === 'ACTIVE' ? 'bg-blue-50 dark:bg-blue-900/30' :
-                          loan.status === 'OVERDUE' ? 'bg-red-50 dark:bg-red-900/30' :
-                          'bg-gray-100 dark:bg-gray-700'
-                        }`}>
-                          <BookOpen className={`h-4 w-4 ${
-                            loan.status === 'ACTIVE' ? 'text-blue-500' :
-                            loan.status === 'OVERDUE' ? 'text-red-500' :
-                            'text-gray-400'
-                          }`} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">{loan.bookCopy.book.title}</p>
-                          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                            <span>{loan.bookCopy.shelf.library.name}</span>
-                            <span>·</span>
-                            <span>Due {new Date(loan.dueDate).toLocaleDateString()}</span>
-                            {loan.returnedAt && <><span>·</span><span>Returned {new Date(loan.returnedAt).toLocaleDateString()}</span></>}
-                            <span>·</span>
-                            <span>{loan.renewCount} renewal{loan.renewCount !== 1 ? 's' : ''}</span>
+                  {paged.map((loan: Loan) => {
+                    const loanDamageReports = loan.damageReports ?? []
+                    return (
+                    <div key={loan.id} className="rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between p-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${
+                            loan.status === 'ACTIVE' ? 'bg-blue-50 dark:bg-blue-900/30' :
+                            loan.status === 'OVERDUE' ? 'bg-red-50 dark:bg-red-900/30' :
+                            'bg-gray-100 dark:bg-gray-700'
+                          }`}>
+                            <BookOpen className={`h-4 w-4 ${
+                              loan.status === 'ACTIVE' ? 'text-blue-500' :
+                              loan.status === 'OVERDUE' ? 'text-red-500' :
+                              'text-gray-400'
+                            }`} />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">
+                              {loanDamageReports.some((d) => !d.resolvedAt) && <ShieldAlert className="mr-1 inline h-3.5 w-3.5 text-red-500" />}
+                              {loan.bookCopy.book.title}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+                              <span>{loan.bookCopy.shelf.library.name}</span>
+                              <span>·</span>
+                              <span>Due {new Date(loan.dueDate).toLocaleDateString()}</span>
+                              {loan.returnedAt && <><span>·</span><span>Returned {new Date(loan.returnedAt).toLocaleDateString()}</span></>}
+                              <span>·</span>
+                              <span>{loan.renewCount} renewal{loan.renewCount !== 1 ? 's' : ''}</span>
+                            </div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <LoanStatusBadge status={loan.status} />
+                          <button onClick={() => navigate('/manage/loans')} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-blue-500 dark:hover:bg-gray-700" title="View in Loans">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </button>
+                          {loan.status !== 'RETURNED' && (
+                            <button onClick={() => setAddDamageForLoan(loan)} className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-500 dark:hover:bg-gray-700" title="Add damage report">
+                              <ShieldAlert className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <LoanStatusBadge status={loan.status} />
+                      {/* Inline damage reports for this loan */}
+                      {loanDamageReports.length > 0 && (
+                        <div className="border-t border-gray-100 px-3 py-2 dark:border-gray-700">
+                          <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Damage Reports ({loanDamageReports.length})</p>
+                          <div className="space-y-1.5">
+                            {loanDamageReports.map((dr) => (
+                              <div key={dr.id} className={`flex items-start justify-between rounded px-2 py-1.5 text-xs ${!dr.resolvedAt ? 'bg-red-50 dark:bg-red-900/10' : dr.resolution === 'CONFIRMED' ? 'bg-red-50 dark:bg-red-900/10' : dr.resolution === 'WARNING' ? 'bg-amber-50 dark:bg-amber-900/10' : 'bg-green-50 dark:bg-green-900/10'}`}>
+                                <div className="min-w-0 flex-1">
+                                  <span className={`font-medium ${!dr.resolvedAt ? 'text-red-700 dark:text-red-400' : dr.resolution === 'CONFIRMED' ? 'text-red-700 dark:text-red-400' : dr.resolution === 'WARNING' ? 'text-amber-700 dark:text-amber-400' : 'text-green-700 dark:text-green-400'}`}>
+                                    {dr.resolvedAt ? (dr.resolution === 'DISMISSED' ? 'Dismissed' : dr.resolution === 'WARNING' ? 'Warning Issued' : dr.resolution === 'CONFIRMED' ? 'Confirmed Damage' : 'Resolved') : dr.type === 'MEMBER_REPORT' ? 'Member' : dr.type === 'STAFF_RETURN' ? 'Return' : 'Staff'}
+                                  </span>
+                                  <span className="ml-1.5 text-gray-400">{new Date(dr.createdAt).toLocaleDateString()}</span>
+                                  {dr.conditionBefore && dr.conditionAfter && (
+                                    <span className="ml-1.5 text-gray-500">{dr.conditionBefore} → {dr.conditionAfter}</span>
+                                  )}
+                                  {dr.description && <p className="mt-0.5 text-gray-600 dark:text-gray-300">{dr.description}</p>}
+                                  {dr.resolvedNote && <p className="mt-0.5 text-green-600 dark:text-green-400">Note: {dr.resolvedNote}</p>}
+                                </div>
+                                {!dr.resolvedAt && (
+                                  <div className="ml-2 flex flex-shrink-0 gap-1">
+                                    <button onClick={() => resolveDamageMutation.mutate({ id: dr.id, resolution: 'DISMISSED' })}
+                                      className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400" title="Not at fault">
+                                      Dismiss
+                                    </button>
+                                    <button onClick={() => resolveDamageMutation.mutate({ id: dr.id, resolution: 'WARNING' })}
+                                      className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400" title="Minor fault">
+                                      Warn
+                                    </button>
+                                    <button onClick={() => resolveDamageMutation.mutate({ id: dr.id, resolution: 'CONFIRMED' })}
+                                      className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400" title="At fault">
+                                      Confirm
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
+                {totalLoanPages > 1 && (
+                  <div className="flex items-center justify-end gap-1.5">
+                    {Array.from({ length: totalLoanPages }, (_, i) => (
+                      <button key={i} onClick={() => setLoanPage(i + 1)}
+                        className={`rounded px-2.5 py-1 text-xs font-medium ${loanPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}`}>
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                </>
               )}
 
               <Button variant="secondary" onClick={() => setIssueLoanOpen(true)}>
                 <Plus className="h-4 w-4" /> Issue Loan
               </Button>
+
+              {/* All Damage Reports for this user */}
+              {damageInfo && damageInfo.reports.length > 0 && (() => {
+                const drPerPage = 3
+                const pagedDr = damageInfo.reports.slice((damagePage - 1) * drPerPage, damagePage * drPerPage)
+                const totalDrPages = Math.ceil(damageInfo.reports.length / drPerPage)
+                return (
+                <div className="mt-2 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-700">
+                    <p className="text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+                      All Damage Reports ({damageInfo.reports.length})
+                    </p>
+                  </div>
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {pagedDr.map((dr: any) => (
+                      <div key={dr.id} className="px-4 py-2.5">
+                        <div className="flex items-start justify-between">
+                          <div className="min-w-0 flex-1 text-xs">
+                            <p className="font-medium text-gray-900 dark:text-white">{dr.bookCopy?.book.title}</p>
+                            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                              <span>{dr.type === 'MEMBER_REPORT' ? 'Member' : dr.type === 'STAFF_RETURN' ? 'Return' : 'Staff'}</span>
+                              <span>·</span>
+                              <span>{new Date(dr.createdAt).toLocaleDateString()}</span>
+                              {dr.conditionBefore && dr.conditionAfter && <><span>·</span><span>{dr.conditionBefore} → {dr.conditionAfter}</span></>}
+                            </div>
+                            {dr.description && <p className="mt-0.5 text-gray-600 dark:text-gray-300">{dr.description}</p>}
+                          </div>
+                          <div className="ml-2 flex-shrink-0">
+                            {dr.resolvedAt ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${dr.resolution === 'CONFIRMED' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : dr.resolution === 'WARNING' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                                  {dr.resolution === 'DISMISSED' ? 'Dismissed' : dr.resolution === 'WARNING' ? 'Warning' : 'Confirmed'}
+                                </span>
+                                {dr.resolution === 'CONFIRMED' && (
+                                  <button onClick={() => setRemoveReportId(removeReportId === dr.id ? null : dr.id)}
+                                    className="text-xs text-gray-400 hover:text-red-500">Remove</button>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex gap-1">
+                                <button onClick={() => resolveDamageMutation.mutate({ id: dr.id, resolution: 'DISMISSED' })}
+                                  className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400">Dismiss</button>
+                                <button onClick={() => resolveDamageMutation.mutate({ id: dr.id, resolution: 'WARNING' })}
+                                  className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400">Warn</button>
+                                <button onClick={() => resolveDamageMutation.mutate({ id: dr.id, resolution: 'CONFIRMED' })}
+                                  className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400">Confirm</button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {/* Remove confirmed report inline form */}
+                        {removeReportId === dr.id && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <input value={removeReason} onChange={(e) => setRemoveReason(e.target.value)} placeholder="Reason for removal (required)"
+                              className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder-gray-400 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500" />
+                            <button onClick={() => { resolveDamageMutation.mutate({ id: dr.id, resolution: 'DISMISSED', note: removeReason }); setRemoveReportId(null); setRemoveReason('') }}
+                              disabled={!removeReason.trim()}
+                              className="rounded bg-green-100 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-200 disabled:opacity-40 dark:bg-green-900/30 dark:text-green-400">
+                              Remove
+                            </button>
+                            <button onClick={() => { setRemoveReportId(null); setRemoveReason('') }}
+                              className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {/* Footer: pagination + dismiss all */}
+                  <div className="flex items-center justify-between border-t border-gray-100 px-4 py-2.5 dark:border-gray-700">
+                    <div>
+                      {damageInfo.count.unresolved > 0 && (
+                        <button onClick={() => resolveAllMutation.mutate('DISMISSED')} className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400">
+                          Dismiss all unresolved
+                        </button>
+                      )}
+                    </div>
+                    {totalDrPages > 1 && (
+                      <div className="flex gap-1.5">
+                        {Array.from({ length: totalDrPages }, (_, i) => (
+                          <button key={i} onClick={() => setDamagePage(i + 1)}
+                            className={`rounded px-2.5 py-1 text-xs font-medium ${damagePage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}`}>
+                            {i + 1}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                )
+              })()}
+
+              {addDamageForLoan && (
+                <Modal open={!!addDamageForLoan} onClose={() => { setAddDamageForLoan(null); setNewDamageDesc(''); setNewDamageCondition('') }} title="Add Damage Report" size="sm">
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Report damage for <span className="font-medium text-gray-900 dark:text-white">{addDamageForLoan.bookCopy.book.title}</span>
+                    </p>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Condition</label>
+                      <select value={newDamageCondition || addDamageForLoan.bookCopy.condition} onChange={(e) => setNewDamageCondition(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                        {conditions.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      {newDamageCondition && newDamageCondition !== addDamageForLoan.bookCopy.condition && (
+                        <p className="mt-0.5 text-xs text-amber-600 dark:text-amber-400">Currently {addDamageForLoan.bookCopy.condition}</p>
+                      )}
+                    </div>
+                    <textarea value={newDamageDesc} onChange={(e) => setNewDamageDesc(e.target.value)} rows={3} placeholder="Describe the damage..."
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500" />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="secondary" onClick={() => { setAddDamageForLoan(null); setNewDamageDesc(''); setNewDamageCondition('') }}>Cancel</Button>
+                      <Button onClick={() => addDamageMutation.mutate()} loading={addDamageMutation.isPending} disabled={!newDamageDesc.trim()}>Submit</Button>
+                    </div>
+                  </div>
+                </Modal>
+              )}
             </div>
-          )}
+            )
+          })()}
 
           {/* ── Reservations ── */}
-          {tab === 'reservations' && (
+          {tab === 'reservations' && (() => {
+            const perPage = 3
+            const pagedRes = reservations ? reservations.slice((reservationPage - 1) * perPage, reservationPage * perPage) : []
+            const totalResPages = reservations ? Math.ceil(reservations.length / perPage) : 1
+            return (
             <div className="space-y-4">
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Active and past reservations for this user.
@@ -824,8 +1113,9 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                   <p className="text-sm text-gray-500 dark:text-gray-400">No reservations.</p>
                 </div>
               ) : (
+                <>
                 <div className="space-y-2">
-                  {reservations.map((r: Reservation) => (
+                  {pagedRes.map((r: Reservation) => (
                     <div key={r.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                       <div className="flex items-center gap-3">
                         <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg ${
@@ -858,13 +1148,25 @@ function ManageUserDrawer({ user, onClose }: { user: User; onClose: () => void }
                     </div>
                   ))}
                 </div>
+                {totalResPages > 1 && (
+                  <div className="flex items-center justify-end gap-1.5">
+                    {Array.from({ length: totalResPages }, (_, i) => (
+                      <button key={i} onClick={() => setReservationPage(i + 1)}
+                        className={`rounded px-2.5 py-1 text-xs font-medium ${reservationPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'}`}>
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                </>
               )}
 
               <Button variant="secondary" onClick={() => setMakeReservationOpen(true)}>
                 <Plus className="h-4 w-4" /> Make Reservation
               </Button>
             </div>
-          )}
+            )
+          })()}
 
           {/* ── Activity ── */}
           {tab === 'activity' && (

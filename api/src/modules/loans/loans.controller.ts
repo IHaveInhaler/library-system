@@ -4,6 +4,7 @@ import { requireStaffAccess } from '../../lib/libraryStaff'
 import { NotFoundError } from '../../errors'
 import { logAction } from '../../lib/audit'
 import * as loansService from './loans.service'
+import { createDamageReport } from '../damageReports/damageReports.service'
 
 async function getLibraryIdForCopy(copyId: string): Promise<string> {
   const copy = await prisma.bookCopy.findUnique({
@@ -45,7 +46,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
   try {
     const libraryId = await getLibraryIdForCopy(req.body.bookCopyId)
     await requireStaffAccess(req.user!.id, req.user!.role, libraryId)
-    const loan = await loansService.createLoan(req.body)
+    const loan = await loansService.createLoan({ ...req.body, issuedById: req.user!.id })
     logAction({
       actorId: req.user!.id,
       actorName: req.user!.email,
@@ -61,11 +62,50 @@ export async function create(req: Request, res: Response, next: NextFunction): P
   }
 }
 
+export async function update(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const libraryId = await getLibraryIdForLoan(req.params.id as string)
+    await requireStaffAccess(req.user!.id, req.user!.role, libraryId)
+    const loan = await loansService.updateLoan(req.params.id as string, req.body, {
+      id: req.user!.id,
+      name: req.user!.email,
+    })
+    logAction({
+      actorId: req.user!.id,
+      actorName: req.user!.email,
+      action: 'LOAN_UPDATED',
+      targetType: 'Loan',
+      targetId: loan.id,
+      targetName: loan.bookCopy.book.title,
+    })
+    res.json(loan)
+  } catch (err) { next(err) }
+}
+
 export async function returnLoan(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const libraryId = await getLibraryIdForLoan(req.params.id as string)
     await requireStaffAccess(req.user!.id, req.user!.role, libraryId)
-    const loan = await loansService.returnLoan(req.params.id as string)
+
+    const { condition, copyStatus, reportDamage, damageDescription } = req.body || {}
+
+    // Get the loan before return to capture conditionAtCheckout
+    const loanBefore = await loansService.getLoan(req.params.id as string)
+
+    const loan = await loansService.returnLoan(req.params.id as string, { condition, copyStatus })
+
+    // Create damage report if requested
+    if (reportDamage) {
+      await createDamageReport({
+        loanId: loan.id,
+        bookCopyId: loan.bookCopyId,
+        type: 'STAFF_RETURN',
+        conditionBefore: loanBefore.conditionAtCheckout || undefined,
+        conditionAfter: condition || undefined,
+        description: damageDescription,
+      }, req.user!.id)
+    }
+
     logAction({
       actorId: req.user!.id,
       actorName: req.user!.email,
@@ -73,7 +113,7 @@ export async function returnLoan(req: Request, res: Response, next: NextFunction
       targetType: 'Loan',
       targetId: loan.id,
       targetName: loan.bookCopy.book.title,
-      metadata: { userId: loan.userId, bookCopyId: loan.bookCopyId },
+      metadata: { userId: loan.userId, bookCopyId: loan.bookCopyId, condition, copyStatus, reportDamage },
     })
     res.json(loan)
   } catch (err) {
