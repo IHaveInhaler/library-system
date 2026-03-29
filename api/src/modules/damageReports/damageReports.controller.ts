@@ -43,6 +43,12 @@ export async function create(req: Request, res: Response, next: NextFunction): P
 
 export async function getForLoan(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    // Members can only see damage reports on their own loans
+    const loan = await prisma.loan.findUnique({ where: { id: req.params.loanId as string } })
+    if (!loan) throw new NotFoundError('Loan')
+    if (req.user!.role === 'MEMBER' && loan.userId !== req.user!.id) {
+      throw new ForbiddenError('You can only view damage reports on your own loans')
+    }
     const reports = await service.getDamageReportsForLoan(req.params.loanId as string)
     res.json(reports)
   } catch (err) { next(err) }
