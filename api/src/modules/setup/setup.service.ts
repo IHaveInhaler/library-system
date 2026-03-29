@@ -319,14 +319,20 @@ export async function devSeed() {
   }
   const [book1, book2, book3] = books
 
-  const [copy1] = await Promise.all([
-    prisma.bookCopy.create({ data: { barcode: 'CC-GG-001', bookId: book1.id, shelfId: shelf1.id } }),
-    prisma.bookCopy.create({ data: { barcode: 'CC-GG-002', bookId: book1.id, shelfId: shelf1.id } }),
-    prisma.bookCopy.create({ data: { barcode: 'WB-GG-001', bookId: book1.id, shelfId: shelf4.id } }),
-    prisma.bookCopy.create({ data: { barcode: 'CC-BHT-001', bookId: book2.id, shelfId: shelf2.id } }),
-    prisma.bookCopy.create({ data: { barcode: 'CC-PP-001', bookId: book3.id, shelfId: shelf3.id } }),
-    prisma.bookCopy.create({ data: { barcode: 'CC-PP-002', bookId: book3.id, shelfId: shelf3.id } }),
-  ])
+  const { createCopy } = await import('../bookCopies/bookCopies.service')
+  const copyDefs = [
+    { bookId: book1.id, shelfId: shelf1.id, condition: 'GOOD' },
+    { bookId: book1.id, shelfId: shelf1.id, condition: 'GOOD' },
+    { bookId: book1.id, shelfId: shelf4.id, condition: 'GOOD' },
+    { bookId: book2.id, shelfId: shelf2.id, condition: 'GOOD' },
+    { bookId: book3.id, shelfId: shelf3.id, condition: 'NEW' },
+    { bookId: book3.id, shelfId: shelf3.id, condition: 'GOOD' },
+  ]
+  const copies = []
+  for (const def of copyDefs) {
+    copies.push(await createCopy(def))
+  }
+  const [copy1] = copies
 
   // Overdue loan for member (for testing the overdue banner)
   const overdueDue = new Date()
