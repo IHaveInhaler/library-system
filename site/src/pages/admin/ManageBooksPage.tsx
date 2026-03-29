@@ -779,29 +779,59 @@ function IsbnModal({ open, onClose }: { open: boolean; onClose: () => void }) {
 // ── Manual Add Book Modal ────────────────────────────────────────────────────
 function ManualAddModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [coverPreview, setCoverPreview] = useState<string | null>(null)
   const [form, setForm] = useState({
     isbn: '', title: '', author: '', publisher: '', publishedYear: '',
     genre: 'FICTION' as Genre, description: '', language: 'en',
   })
 
+  const resetForm = () => {
+    setForm({ isbn: '', title: '', author: '', publisher: '', publishedYear: '', genre: 'FICTION', description: '', language: 'en' })
+    setCoverFile(null)
+    setCoverPreview(null)
+  }
+
   const create = useMutation({
-    mutationFn: () => booksApi.create({
-      ...form,
-      publishedYear: form.publishedYear ? Number(form.publishedYear) : undefined,
-      publisher: form.publisher || undefined,
-      description: form.description || undefined,
-    } as any),
+    mutationFn: async () => {
+      const book = await booksApi.create({
+        ...form,
+        publishedYear: form.publishedYear ? Number(form.publishedYear) : undefined,
+        publisher: form.publisher || undefined,
+        description: form.description || undefined,
+      } as any)
+      if (coverFile) {
+        await uploadsApi.uploadBookCover(book.id, coverFile)
+      }
+      return book
+    },
     onSuccess: () => {
       toast.success('Book added')
       qc.invalidateQueries({ queryKey: ['books'] })
       onClose()
-      setForm({ isbn: '', title: '', author: '', publisher: '', publishedYear: '', genre: 'FICTION', description: '', language: 'en' })
+      resetForm()
     },
     onError: (err) => toast.error(extractError(err)),
   })
 
+  const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCoverFile(file)
+    const url = URL.createObjectURL(file)
+    setCoverPreview(url)
+    e.target.value = ''
+  }
+
+  const removeCover = () => {
+    setCoverFile(null)
+    if (coverPreview) URL.revokeObjectURL(coverPreview)
+    setCoverPreview(null)
+  }
+
   return (
-    <Modal open={open} onClose={onClose} title="Add Book Manually" size="lg">
+    <Modal open={open} onClose={() => { onClose(); resetForm() }} title="Add Book Manually" size="lg">
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <Input label="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
@@ -827,8 +857,32 @@ function ManualAddModal({ open, onClose }: { open: boolean; onClose: () => void 
           <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3}
             className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
         </div>
+
+        {/* Cover image upload */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Cover Image <span className="font-normal text-gray-400">(optional)</span></label>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleCoverSelect} />
+          {coverPreview ? (
+            <div className="flex items-start gap-3">
+              <img src={coverPreview} alt="Cover preview" className="h-24 w-auto rounded-lg border border-gray-200 object-contain dark:border-gray-600" />
+              <Button variant="ghost" size="sm" onClick={removeCover}>
+                <X className="h-4 w-4" /> Remove
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="flex items-center gap-2 rounded-lg border border-dashed border-gray-300 px-4 py-3 text-sm text-gray-500 transition-colors hover:border-blue-400 hover:text-blue-500 dark:border-gray-600 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400"
+            >
+              <Upload className="h-4 w-4" />
+              Upload cover image
+            </button>
+          )}
+        </div>
+
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="secondary" onClick={() => { onClose(); resetForm() }}>Cancel</Button>
           <Button onClick={() => create.mutate()} loading={create.isPending} disabled={!form.title || !form.author || !form.isbn}>
             Add Book
           </Button>

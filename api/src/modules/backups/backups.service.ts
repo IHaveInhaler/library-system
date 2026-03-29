@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
+import { execSync } from 'child_process'
+import { prisma } from '../../lib/prisma'
 
 const DATA_DIR = process.env.DATABASE_URL?.includes('/app/data/')
   ? '/app/data'
@@ -8,6 +10,7 @@ const DATA_DIR = process.env.DATABASE_URL?.includes('/app/data/')
 
 const BACKUP_DIR = path.join(DATA_DIR, 'backups')
 const INDEX_FILE = path.join(BACKUP_DIR, 'backups.json')
+const MIGRATIONS_DIR = path.resolve(__dirname, '../../../prisma/migrations')
 
 // Resolve the actual SQLite database file path from DATABASE_URL
 function getDbPath(): string {
@@ -67,12 +70,17 @@ function generateLabel(reason: BackupMeta['reason'], note: string): string {
   return note || 'Pre-Delete Backup'
 }
 
-export function createBackup(reason: BackupMeta['reason'], note: string): BackupMeta {
+export async function createBackup(reason: BackupMeta['reason'], note: string): Promise<BackupMeta> {
   ensureDir()
   const dbPath = getDbPath()
   if (!fs.existsSync(dbPath)) {
     throw new Error(`Database file not found at ${dbPath}`)
   }
+
+  // Flush WAL to main DB file so the copy is self-contained
+  try {
+    await prisma.$queryRawUnsafe('PRAGMA wal_checkpoint(TRUNCATE)')
+  } catch { /* ignore — may not be in WAL mode */ }
 
   const id = crypto.randomBytes(8).toString('hex')
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
@@ -122,26 +130,115 @@ export function deleteBackup(id: string): boolean {
   return true
 }
 
-export function restoreBackup(id: string): void {
-  const backupPath = getBackupPath(id)
-  if (!backupPath) throw new Error('Backup not found')
-
-  // Validate the file is a SQLite database before restoring
+function checkIntegrity(filePath: string): void {
+  // Validate SQLite header
   const header = Buffer.alloc(16)
-  const fd = fs.openSync(backupPath, 'r')
+  const fd = fs.openSync(filePath, 'r')
   fs.readSync(fd, header, 0, 16, 0)
   fs.closeSync(fd)
   if (!header.toString('utf-8', 0, 15).startsWith('SQLite format 3')) {
     throw new Error('Invalid backup file: not a SQLite database')
   }
 
+  // Full integrity check via sqlite3 CLI
+  try {
+    const result = execSync(`sqlite3 "${filePath}" "PRAGMA integrity_check;"`, {
+      timeout: 30000,
+      encoding: 'utf-8',
+    }).trim()
+    if (result !== 'ok') {
+      throw new Error(`Backup integrity check failed: ${result}`)
+    }
+  } catch (err: any) {
+    if (err.message?.includes('integrity check failed') || err.message?.includes('not a SQLite')) throw err
+    // sqlite3 not available — header check already passed, continue
+    console.warn('[Restore] sqlite3 CLI not available for full integrity check, proceeding with header validation only')
+  }
+}
+
+function checkMigrationCompat(filePath: string): void {
+  try {
+    // Get migrations from backup DB
+    const raw = execSync(
+      `sqlite3 "${filePath}" "SELECT migration_name FROM _prisma_migrations ORDER BY migration_name;"`,
+      { timeout: 10000, encoding: 'utf-8' },
+    ).trim()
+    if (!raw) return // No migrations in backup — will be applied by migrate deploy
+
+    const backupMigrations = raw.split('\n').map((l) => l.trim()).filter(Boolean)
+
+    // Get migrations from codebase
+    const codeMigrations = fs.readdirSync(MIGRATIONS_DIR)
+      .filter((d) => fs.statSync(path.join(MIGRATIONS_DIR, d)).isDirectory())
+      .sort()
+
+    const unknown = backupMigrations.filter((m) => !codeMigrations.includes(m))
+    if (unknown.length > 0) {
+      throw new Error(
+        `Backup contains migrations not in current code: ${unknown.join(', ')}. Update the application before restoring.`,
+      )
+    }
+  } catch (err: any) {
+    if (err.message?.includes('not in current code')) throw err
+    // sqlite3 not available — skip check
+    console.warn('[Restore] Could not check migration compatibility, proceeding')
+  }
+}
+
+export async function safeRestore(id: string): Promise<void> {
+  const backupPath = getBackupPath(id)
+  if (!backupPath) throw new Error('Backup not found')
+
+  // 1. Integrity check
+  checkIntegrity(backupPath)
+
+  // 2. Migration compatibility
+  checkMigrationCompat(backupPath)
+
+  // 3. Disconnect Prisma
+  await prisma.$disconnect()
+
   const dbPath = getDbPath()
 
-  // Create a pre-restore backup first
-  createBackup('pre-delete', 'Auto-backup before restore')
+  // 4. Atomic swap: copy to temp, then rename
+  const tmpPath = dbPath + '.restore-tmp'
+  try {
+    fs.copyFileSync(backupPath, tmpPath)
+    fs.renameSync(tmpPath, dbPath)
+  } catch (err) {
+    // Clean up temp file on failure
+    if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath)
+    await prisma.$connect()
+    throw err
+  }
 
-  // Copy backup over current database
-  fs.copyFileSync(backupPath, dbPath)
+  // 5. WAL cleanup
+  for (const ext of ['-wal', '-shm', '-journal']) {
+    const f = dbPath + ext
+    if (fs.existsSync(f)) fs.unlinkSync(f)
+  }
+
+  // 6. Apply pending migrations
+  try {
+    execSync('npx prisma migrate deploy', {
+      cwd: path.resolve(__dirname, '../../../'),
+      timeout: 60000,
+      encoding: 'utf-8',
+      env: { ...process.env },
+    })
+  } catch (err: any) {
+    console.error('[Restore] Migration deploy failed:', err.message)
+  }
+
+  // 7. Reconnect Prisma
+  await prisma.$connect()
+
+  // 8. Invalidate all sessions
+  try {
+    await prisma.refreshToken.deleteMany()
+  } catch { /* table may not exist in very old backups */ }
+
+  console.log(`[Restore] Database restored from backup ${id}`)
 }
 
 export function pruneOldBackups(keepMin = 5, maxAgeDays = 30): number {

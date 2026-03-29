@@ -107,6 +107,31 @@ export async function setDevMode(req: Request, res: Response, next: NextFunction
   }
 }
 
+export async function listBackups(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const token = req.headers['x-setup-token'] as string
+    if (!token) { res.status(401).json({ code: 'UNAUTHORIZED', message: 'Missing setup token' }); return }
+    setupService.verifySetupToken(token)
+    res.json({ backups: setupService.listSetupBackups() })
+  } catch (err) { next(err) }
+}
+
+export async function restoreBackup(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const token = req.headers['x-setup-token'] as string
+    if (!token) { res.status(401).json({ code: 'UNAUTHORIZED', message: 'Missing setup token' }); return }
+    setupService.verifySetupToken(token)
+    setupService.consumeSetupToken(token)
+
+    const { backupId } = req.body as { backupId: string }
+    if (!backupId) { res.status(400).json({ code: 'VALIDATION_ERROR', message: 'backupId is required' }); return }
+
+    await setupService.restoreFromBackup(backupId)
+    res.json({ success: true, message: 'Database restored. Server is restarting.' })
+    setTimeout(() => process.exit(0), 500)
+  } catch (err) { next(err) }
+}
+
 // In-memory factory reset codes
 const resetCodes = new Map<string, { code: string; expiresAt: Date }>()
 
@@ -139,7 +164,9 @@ export async function factoryReset(req: Request, res: Response, next: NextFuncti
         res.status(400).json({ code: 'EXPIRED', message: 'Code expired. Start again.' })
         return
       }
-      if (stored.code !== code) {
+      const expected = Buffer.from(stored.code, 'utf8')
+      const received = Buffer.from(String(code).padEnd(expected.length), 'utf8')
+      if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
         res.status(403).json({ code: 'FORBIDDEN', message: 'Invalid code' })
         return
       }

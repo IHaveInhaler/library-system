@@ -7,6 +7,15 @@ export interface SetupStatus {
   devSeeded: boolean
   environment: 'development' | 'production' | 'test'
   hasExistingData: boolean
+  backupCount: number
+}
+
+export interface SetupBackup {
+  id: string
+  label: string
+  size: number
+  reason: string
+  createdAt: string
 }
 
 export const setupApi = {
@@ -39,6 +48,20 @@ export const setupApi = {
 
   setDevMode: (enabled: boolean) =>
     api.post<{ devMode: boolean }>('/setup/dev-mode', { enabled }).then((r) => r.data),
+
+  listBackups: (setupToken: string) =>
+    api
+      .get<{ backups: SetupBackup[] }>('/setup/backups', {
+        headers: { 'X-Setup-Token': setupToken },
+      })
+      .then((r) => r.data.backups),
+
+  restoreBackup: (setupToken: string, backupId: string) =>
+    api
+      .post('/setup/restore-backup', { backupId }, {
+        headers: { 'X-Setup-Token': setupToken },
+      })
+      .then((r) => r.data),
 
   factoryResetChallenge: () => api.post('/setup/factory-reset', { step: 'challenge' }).then((r) => r.data),
   factoryResetVerify: (code: string) => api.post('/setup/factory-reset', { step: 'verify', code }).then((r) => r.data),

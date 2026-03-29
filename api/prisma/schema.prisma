@@ -34,6 +34,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   emailVerifications  EmailVerification[]
   securityKeys       SecurityKey[]
+  backupCodes        BackupCode[]
   bookNotes          BookNote[]
   damageReports      DamageReport[] @relation("damageReporter")
 }
@@ -47,6 +48,14 @@ model SecurityKey {
   counter      Int      @default(0)
   name         String   // user-friendly name e.g. "YubiKey 5"
   createdAt    DateTime @default(now())
+}
+
+model BackupCode {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  createdAt DateTime @default(now())
 }
 
 model BookNote {

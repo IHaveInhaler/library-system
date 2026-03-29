@@ -2,10 +2,10 @@ import { useState, useRef } from 'react'
 import { startRegistration } from '@simplewebauthn/browser'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { User as UserIcon, Shield, Key, Camera, Trash2, AlertTriangle, CheckCircle2, Copy } from 'lucide-react'
+import { User as UserIcon, Shield, Key, Camera, Trash2, AlertTriangle, CheckCircle2, Copy, Lock, RotateCcw } from 'lucide-react'
 import { twoFactorApi, type TotpSetupResponse } from '../../api/twoFactor'
 import { uploadsApi } from '../../api/uploads'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuth, useMe } from '../../hooks/useAuth'
 import { Button } from '../../components/ui/Button'
 import { Input } from '../../components/ui/Input'
 import { Badge } from '../../components/ui/Badge'
@@ -161,6 +161,9 @@ function TwoFactorSection() {
   const qc = useQueryClient()
   const [setupData, setSetupData] = useState<TotpSetupResponse | null>(null)
   const [verifyCode, setVerifyCode] = useState('')
+  const [removePassword, setRemovePassword] = useState('')
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false)
+  const [newBackupCodes, setNewBackupCodes] = useState<string[] | null>(null)
 
   const { data: status, isLoading: statusLoading } = useQuery({
     queryKey: ['2fa-status'],
@@ -175,20 +178,25 @@ function TwoFactorSection() {
 
   const verify = useMutation({
     mutationFn: (code: string) => twoFactorApi.totpVerify(code),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       toast.success('TOTP enabled successfully')
       setSetupData(null)
       setVerifyCode('')
+      if (data.backupCodes) setNewBackupCodes(data.backupCodes)
       qc.invalidateQueries({ queryKey: ['2fa-status'] })
+      qc.invalidateQueries({ queryKey: ['me'] })
     },
     onError: (err) => toast.error(extractError(err)),
   })
 
   const removeTotp = useMutation({
-    mutationFn: twoFactorApi.totpRemove,
+    mutationFn: (password: string) => twoFactorApi.totpRemove(password),
     onSuccess: () => {
       toast.success('TOTP removed')
+      setShowRemoveConfirm(false)
+      setRemovePassword('')
       qc.invalidateQueries({ queryKey: ['2fa-status'] })
+      qc.invalidateQueries({ queryKey: ['me'] })
     },
     onError: (err) => toast.error(extractError(err)),
   })
@@ -216,10 +224,14 @@ function TwoFactorSection() {
         ) : (
           <>
             {/* 2FA required warning */}
-            {status?.required && !status.totpEnabled && status.securityKeyCount === 0 && (
+            {status?.enforced && (
               <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-400">
                 <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                <p>Two-factor authentication is required for your role. Please set up at least one method below.</p>
+                <p>
+                  {status.securityKeysOnly
+                    ? 'A security key is required for your role. Please register at least one security key below.'
+                    : 'Two-factor authentication is required for your role. Please set up at least one method below.'}
+                </p>
               </div>
             )}
 
@@ -233,19 +245,45 @@ function TwoFactorSection() {
               </div>
 
               {status?.totpEnabled ? (
-                <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">TOTP enabled</span>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">TOTP enabled</span>
+                    </div>
+                    {showRemoveConfirm ? (
+                      <Button variant="ghost" size="sm" onClick={() => { setShowRemoveConfirm(false); setRemovePassword('') }}>
+                        Cancel
+                      </Button>
+                    ) : (
+                      <Button variant="danger" size="sm" onClick={() => setShowRemoveConfirm(true)}>
+                        Remove
+                      </Button>
+                    )}
                   </div>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => removeTotp.mutate()}
-                    loading={removeTotp.isPending}
-                  >
-                    Remove
-                  </Button>
+                  {showRemoveConfirm && (
+                    <div className="flex items-end gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-700/50 dark:bg-red-900/20">
+                      <div className="flex-1">
+                        <Input
+                          label="Confirm your password to remove TOTP"
+                          type="password"
+                          value={removePassword}
+                          onChange={(e) => setRemovePassword(e.target.value)}
+                          placeholder="Enter your password"
+                          autoFocus
+                        />
+                      </div>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => removeTotp.mutate(removePassword)}
+                        loading={removeTotp.isPending}
+                        disabled={!removePassword}
+                      >
+                        Confirm
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : setupData ? (
                 /* Setup flow: QR + manual secret + verify */
@@ -301,7 +339,13 @@ function TwoFactorSection() {
             </div>
 
             {/* Security Keys subsection */}
-            <SecurityKeysSection />
+            <SecurityKeysSection onBackupCodesGenerated={setNewBackupCodes} />
+
+            {/* Backup Codes subsection */}
+            <BackupCodesSection
+              newCodes={newBackupCodes}
+              onDismissCodes={() => setNewBackupCodes(null)}
+            />
           </>
         )}
       </div>
@@ -311,11 +355,13 @@ function TwoFactorSection() {
 
 // ── Security Keys Section ────────────────────────────────────────────────────
 
-function SecurityKeysSection() {
+function SecurityKeysSection({ onBackupCodesGenerated }: { onBackupCodesGenerated: (codes: string[]) => void }) {
   const qc = useQueryClient()
   const [registering, setRegistering] = useState(false)
   const [keyName, setKeyName] = useState('')
   const [showNameInput, setShowNameInput] = useState(false)
+  const [removingKeyId, setRemovingKeyId] = useState<string | null>(null)
+  const [removeKeyPassword, setRemoveKeyPassword] = useState('')
 
   const { data: keys, isLoading } = useQuery({
     queryKey: ['2fa-security-keys'],
@@ -323,11 +369,14 @@ function SecurityKeysSection() {
   })
 
   const removeKey = useMutation({
-    mutationFn: twoFactorApi.removeSecurityKey,
+    mutationFn: ({ id, password }: { id: string; password: string }) => twoFactorApi.removeSecurityKey(id, password),
     onSuccess: () => {
       toast.success('Security key removed')
+      setRemovingKeyId(null)
+      setRemoveKeyPassword('')
       qc.invalidateQueries({ queryKey: ['2fa-security-keys'] })
       qc.invalidateQueries({ queryKey: ['2fa-status'] })
+      qc.invalidateQueries({ queryKey: ['me'] })
     },
     onError: (err: unknown) => toast.error(extractError(err)),
   })
@@ -346,13 +395,15 @@ function SecurityKeysSection() {
       const attestation = await startRegistration({ optionsJSON: options })
 
       // 3. Send attestation to server for verification
-      await twoFactorApi.securityKeyRegisterVerify(attestation, keyName.trim())
+      const result = await twoFactorApi.securityKeyRegisterVerify(attestation, keyName.trim())
 
       toast.success('Security key registered!')
+      if (result.backupCodes) onBackupCodesGenerated(result.backupCodes)
       setKeyName('')
       setShowNameInput(false)
       qc.invalidateQueries({ queryKey: ['2fa-security-keys'] })
       qc.invalidateQueries({ queryKey: ['2fa-status'] })
+      qc.invalidateQueries({ queryKey: ['me'] })
     } catch (err: any) {
       if (err?.name === 'NotAllowedError') {
         toast.error('Registration cancelled or timed out')
@@ -373,25 +424,48 @@ function SecurityKeysSection() {
       ) : keys && keys.length > 0 ? (
         <div className="space-y-2">
           {keys.map((key) => (
-            <div
-              key={key.id}
-              className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50"
-            >
-              <div className="flex items-center gap-2">
-                <Key className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{key.name}</span>
-                <span className="text-xs text-gray-400 dark:text-gray-500">
-                  Added {new Date(key.createdAt).toLocaleDateString()}
-                </span>
+            <div key={key.id} className="space-y-2">
+              <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
+                <div className="flex items-center gap-2">
+                  <Key className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{key.name}</span>
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    Added {new Date(key.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                {removingKeyId === key.id ? (
+                  <Button variant="ghost" size="sm" onClick={() => { setRemovingKeyId(null); setRemoveKeyPassword('') }}>
+                    Cancel
+                  </Button>
+                ) : (
+                  <Button variant="danger" size="sm" onClick={() => setRemovingKeyId(key.id)}>
+                    Remove
+                  </Button>
+                )}
               </div>
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => removeKey.mutate(key.id)}
-                loading={removeKey.isPending}
-              >
-                Remove
-              </Button>
+              {removingKeyId === key.id && (
+                <div className="flex items-end gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-700/50 dark:bg-red-900/20">
+                  <div className="flex-1">
+                    <Input
+                      label="Confirm your password to remove this key"
+                      type="password"
+                      value={removeKeyPassword}
+                      onChange={(e) => setRemoveKeyPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      autoFocus
+                    />
+                  </div>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => removeKey.mutate({ id: key.id, password: removeKeyPassword })}
+                    loading={removeKey.isPending}
+                    disabled={!removeKeyPassword}
+                  >
+                    Confirm
+                  </Button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -433,12 +507,153 @@ function SecurityKeysSection() {
   )
 }
 
+// ── Backup Codes Section ────────────────────────────────────────────────────
+
+function BackupCodesSection({ newCodes, onDismissCodes }: { newCodes: string[] | null; onDismissCodes: () => void }) {
+  const qc = useQueryClient()
+  const [regenPassword, setRegenPassword] = useState('')
+  const [showRegen, setShowRegen] = useState(false)
+  const [displayCodes, setDisplayCodes] = useState<string[] | null>(null)
+
+  const { data: status } = useQuery({ queryKey: ['2fa-status'], queryFn: twoFactorApi.status })
+  const hasAnyCodes = (status?.backupCodeCount ?? 0) > 0
+
+  const regenerate = useMutation({
+    mutationFn: (password: string) => twoFactorApi.backupCodesGenerate(password),
+    onSuccess: (data) => {
+      setDisplayCodes(data.codes)
+      setShowRegen(false)
+      setRegenPassword('')
+      qc.invalidateQueries({ queryKey: ['2fa-status'] })
+    },
+    onError: (err) => toast.error(extractError(err)),
+  })
+
+  // Show newly auto-generated codes
+  const codesToShow = newCodes || displayCodes
+  const hasTwoFA = status && (status.totpEnabled || status.securityKeyCount > 0)
+
+  if (!hasTwoFA && !codesToShow) return null
+
+  const copyAll = (codes: string[]) => {
+    navigator.clipboard.writeText(codes.join('\n'))
+    toast.success('Backup codes copied to clipboard')
+  }
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-medium text-gray-900 dark:text-white">Backup Codes</h3>
+
+      {codesToShow ? (
+        <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-700/50 dark:bg-amber-900/20">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              Save these backup codes now — they won't be shown again
+            </p>
+          </div>
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Each backup code can be used once instead of 2FA. Using one will disable all 2FA on your account.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {codesToShow.map((code) => (
+              <code
+                key={code}
+                className="rounded border border-amber-300 bg-white px-3 py-1.5 text-center font-mono text-sm text-gray-900 dark:border-amber-600 dark:bg-gray-800 dark:text-white"
+              >
+                {code}
+              </code>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" size="sm" onClick={() => copyAll(codesToShow)}>
+              <Copy className="h-4 w-4" /> Copy all
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setDisplayCodes(null); onDismissCodes() }}
+            >
+              I've saved these codes
+            </Button>
+          </div>
+        </div>
+      ) : hasAnyCodes ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                {status!.backupCodeCount} backup code{status!.backupCodeCount !== 1 ? 's' : ''} remaining
+              </span>
+            </div>
+            {showRegen ? (
+              <Button variant="ghost" size="sm" onClick={() => { setShowRegen(false); setRegenPassword('') }}>
+                Cancel
+              </Button>
+            ) : (
+              <Button variant="secondary" size="sm" onClick={() => setShowRegen(true)}>
+                <RotateCcw className="h-3 w-3" /> Regenerate
+              </Button>
+            )}
+          </div>
+          {showRegen && (
+            <div className="flex items-end gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-700/50 dark:bg-amber-900/20">
+              <div className="flex-1">
+                <Input
+                  label="Confirm password to regenerate codes"
+                  type="password"
+                  value={regenPassword}
+                  onChange={(e) => setRegenPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  autoFocus
+                />
+              </div>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => regenerate.mutate(regenPassword)}
+                loading={regenerate.isPending}
+                disabled={!regenPassword}
+              >
+                Regenerate
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Backup codes will be generated automatically when you set up 2FA.
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ── Profile Page ─────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
+  const { data: me } = useMe()
+  const locked = !!me?.requires2FASetup
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">Account Settings</h1>
+
+      {locked && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-red-300 bg-red-50 p-5 dark:border-red-700/50 dark:bg-red-900/20">
+          <Lock className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600 dark:text-red-400" />
+          <div>
+            <p className="font-semibold text-red-700 dark:text-red-300">Your account is locked</p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              {me?.required2FAMethod === 'security-key'
+                ? 'A security key is required for your role. You must register at least one security key below before you can access the rest of the application.'
+                : 'Two-factor authentication is required for your role. You must enable at least one 2FA method below before you can access the rest of the application.'}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-8">
         <ProfileSection />
         <TwoFactorSection />

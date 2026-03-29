@@ -15,7 +15,7 @@ export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
   const location = useLocation()
 
   // Fetch fresh user data to check 2FA status
-  const { data: me } = useQuery({
+  const { data: me, isLoading } = useQuery({
     queryKey: ['me'],
     queryFn: authApi.me,
     enabled: !!accessToken,
@@ -28,6 +28,11 @@ export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
 
   if (roles && user && !roles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />
+  }
+
+  // Wait for me query to resolve before rendering — prevents flash of protected content
+  if (isLoading) {
+    return null
   }
 
   // Force 2FA setup if required — redirect to /profile (but don't loop if already there)

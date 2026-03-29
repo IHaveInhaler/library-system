@@ -40,21 +40,24 @@ export default function LoginPage() {
   const [pendingChallengeToken, setPendingChallengeToken] = useState<string | null>(null)
   const [availableMethods, setAvailableMethods] = useState<string[]>([])
   const [showTotpInput, setShowTotpInput] = useState(false)
+  const [showBackupInput, setShowBackupInput] = useState(false)
   const [_showKeyPrompt, setShowKeyPrompt] = useState(false)
   const [totpCode, setTotpCode] = useState('')
+  const [backupCode, setBackupCode] = useState('')
   const [totpLoading, setTotpLoading] = useState(false)
+  const [backupLoading, setBackupLoading] = useState(false)
   const [keyLoading, setKeyLoading] = useState(false)
   const totpInputRef = useRef<HTMLInputElement>(null)
+  const backupInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setupApi.status().then((s) => setShowDevAccounts(s.devMode && s.devSeeded)).catch(() => {})
   }, [])
 
   useEffect(() => {
-    if (showTotpInput && totpInputRef.current) {
-      totpInputRef.current.focus()
-    }
-  }, [showTotpInput])
+    if (showTotpInput && totpInputRef.current) totpInputRef.current.focus()
+    if (showBackupInput && backupInputRef.current) backupInputRef.current.focus()
+  }, [showTotpInput, showBackupInput])
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -64,14 +67,16 @@ export default function LoginPage() {
     if (data.requires2FA) {
       setPendingChallengeToken(data.challengeToken)
       setAvailableMethods(data.methods || [])
-      // If only one method, go straight to it
-      if (data.methods?.length === 1 && data.methods[0] === 'totp') {
-        setShowTotpInput(true)
-      } else if (data.methods?.length === 1 && data.methods[0] === 'securityKey') {
-        handleSecurityKeyAuth(data.challengeToken)
-      } else {
-        // Show method picker
-        setShowTotpInput(true) // Default to TOTP picker, with option to switch
+      // Route to the right method based on what's available
+      const methods: string[] = data.methods || []
+      const hasTotp = methods.includes('totp')
+      const hasKey = methods.includes('securityKey')
+      if (hasTotp) {
+        setShowTotpInput(true) // TOTP primary, security key as fallback if available
+      } else if (hasKey) {
+        handleSecurityKeyAuth(data.challengeToken) // Security key only
+      } else if (methods.includes('backupCode')) {
+        setShowBackupInput(true) // Only backup codes left
       }
       setTotpCode('')
       return true
@@ -85,12 +90,13 @@ export default function LoginPage() {
     try {
       const { startAuthentication } = await import('@simplewebauthn/browser')
       const options = await twoFactorApi.securityKeyAuthOptions(challengeToken)
-      const assertion = await startAuthentication({ optionsJSON: options })
+      const assertion = await startAuthentication({ optionsJSON: options, useBrowserAutofill: false })
       const result = await twoFactorApi.challenge({ challengeToken, method: 'securityKey', assertion })
       setAuth(result.user, result.accessToken, result.refreshToken)
-      qc.setQueryData(['me'], result.user)
+      qc.invalidateQueries({ queryKey: ['me'] })
       navigate(from, { replace: true })
     } catch (err: any) {
+      console.error('Security key auth error:', err?.name, err?.message, err)
       if (err?.name === 'NotAllowedError') {
         toast.error('Authentication cancelled or timed out')
       } else {
@@ -119,7 +125,7 @@ export default function LoginPage() {
     try {
       const result = await twoFactorApi.challenge({ challengeToken: pendingChallengeToken, method: 'totp', code: totpCode })
       setAuth(result.user, result.accessToken, result.refreshToken)
-      qc.setQueryData(['me'], result.user)
+      qc.invalidateQueries({ queryKey: ['me'] })
       navigate(from, { replace: true })
     } catch (err) {
       toast.error(extractError(err))
@@ -130,12 +136,32 @@ export default function LoginPage() {
     }
   }
 
+  const onBackupSubmit = async () => {
+    if (!pendingChallengeToken || backupCode.replace(/-/g, '').length < 16) return
+    setBackupLoading(true)
+    try {
+      const result = await twoFactorApi.challenge({ challengeToken: pendingChallengeToken, method: 'backupCode', code: backupCode })
+      setAuth(result.user, result.accessToken, result.refreshToken)
+      qc.invalidateQueries({ queryKey: ['me'] })
+      toast.success('Logged in. All 2FA has been disabled — set it up again from your profile.')
+      navigate(from, { replace: true })
+    } catch (err) {
+      toast.error(extractError(err))
+      setBackupCode('')
+      backupInputRef.current?.focus()
+    } finally {
+      setBackupLoading(false)
+    }
+  }
+
   const resetTotpState = () => {
     setPendingChallengeToken(null)
     setAvailableMethods([])
     setShowTotpInput(false)
+    setShowBackupInput(false)
     setShowKeyPrompt(false)
     setTotpCode('')
+    setBackupCode('')
   }
 
   return (
@@ -145,24 +171,72 @@ export default function LoginPage() {
       </Link>
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2 text-center">
-          <div className={`rounded-xl p-3 ${showTotpInput ? 'bg-amber-500' : 'bg-blue-600'}`}>
-            {showTotpInput
+          <div className={`rounded-xl p-3 ${(showTotpInput || showBackupInput) ? 'bg-amber-500' : 'bg-blue-600'}`}>
+            {(showTotpInput || showBackupInput)
               ? <ShieldCheck className="h-7 w-7 text-white" />
               : <BookOpen className="h-7 w-7 text-white" />
             }
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {showTotpInput ? 'Two-factor authentication' : 'Sign in'}
+            {showBackupInput ? 'Recovery code' : showTotpInput ? 'Two-factor authentication' : 'Sign in'}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {showTotpInput
-              ? 'Enter the 6-digit code from your authenticator app'
-              : 'Welcome back to Library Portal'
+            {showBackupInput
+              ? 'Enter one of your backup codes'
+              : showTotpInput
+                ? 'Enter the 6-digit code from your authenticator app'
+                : 'Welcome back to Library Portal'
             }
           </p>
         </div>
 
-        {showTotpInput ? (
+        {showBackupInput ? (
+          <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 dark:border-red-700/50 dark:bg-red-900/20 dark:text-red-400">
+              Using a backup code will disable all 2FA on your account.
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="backup-code" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Backup code
+              </label>
+              <input
+                ref={backupInputRef}
+                id="backup-code"
+                type="text"
+                autoComplete="off"
+                maxLength={19}
+                placeholder="XXXX-XXXX-XXXX-XXXX"
+                value={backupCode}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 16)
+                  const parts = raw.match(/.{1,4}/g) || []
+                  setBackupCode(parts.join('-'))
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && backupCode.replace(/-/g, '').length === 16) onBackupSubmit()
+                }}
+                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-center font-mono text-lg tracking-widest text-gray-900 shadow-sm transition placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500"
+              />
+            </div>
+            <Button
+              type="button"
+              loading={backupLoading}
+              disabled={backupCode.replace(/-/g, '').length !== 16}
+              className="w-full"
+              onClick={onBackupSubmit}
+            >
+              Use backup code
+            </Button>
+            <button
+              type="button"
+              onClick={() => { setShowBackupInput(false); setBackupCode(''); setShowTotpInput(true) }}
+              className="flex w-full items-center justify-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to verification
+            </button>
+          </div>
+        ) : showTotpInput ? (
           <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <div className="flex flex-col gap-1">
               <label htmlFor="totp-code" className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -205,6 +279,15 @@ export default function LoginPage() {
               >
                 <Key className="h-4 w-4" />
                 {keyLoading ? 'Waiting for key...' : 'Use security key instead'}
+              </button>
+            )}
+            {availableMethods.includes('backupCode') && (
+              <button
+                type="button"
+                onClick={() => { setShowTotpInput(false); setShowBackupInput(true) }}
+                className="flex w-full items-center justify-center gap-1.5 text-xs text-gray-400 transition-colors hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              >
+                Use a backup code
               </button>
             )}
             <button

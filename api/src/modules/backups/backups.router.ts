@@ -80,7 +80,9 @@ function verifyCode(userId: string, action: string, code: string): boolean {
   const storeKey = `code:${userId}:${action}`
   const stored = verificationCodes.get(storeKey)
   if (!stored || stored.expiresAt < new Date()) return false
-  if (stored.code !== code) return false
+  const expected = Buffer.from(stored.code, 'utf8')
+  const received = Buffer.from(String(code).padEnd(expected.length), 'utf8')
+  if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) return false
   verificationCodes.delete(storeKey)
   return true
 }
@@ -96,7 +98,7 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const note = (req.body as any)?.note || 'Manual backup'
-    const backup = backupService.createBackup('manual', note)
+    const backup = await backupService.createBackup('manual', note)
     logAction({
       actorId: req.user!.id,
       actorName: req.user!.email,
@@ -179,7 +181,7 @@ router.post('/:id/restore', async (req: Request, res: Response, next: NextFuncti
 
       if (!verified) { res.status(403).json({ code: 'FORBIDDEN', message: 'Verification failed' }); return }
 
-      backupService.restoreBackup(id)
+      await backupService.safeRestore(id)
       logAction({
         actorId: req.user!.id,
         actorName: req.user!.email,
@@ -188,7 +190,8 @@ router.post('/:id/restore', async (req: Request, res: Response, next: NextFuncti
         targetId: id,
         targetName: backup.filename,
       })
-      res.json({ success: true, message: 'Database restored. Please restart the server and re-login.' })
+      res.json({ success: true, message: 'Database restored. Server is restarting.' })
+      setTimeout(() => process.exit(0), 500)
       return
     }
 

@@ -13,9 +13,9 @@ async function main() {
   console.log('Database connected')
 
   // Daily backup at 02:00 AM
-  cron.schedule('0 2 * * *', () => {
+  cron.schedule('0 2 * * *', async () => {
     try {
-      const backup = createBackup('scheduled', 'Daily automatic backup')
+      const backup = await createBackup('scheduled', 'Daily automatic backup')
       console.log(`[Backup] Daily backup created: ${backup.filename} (${(backup.size / 1024).toFixed(1)} KB)`)
       const pruned = pruneOldBackups()
       if (pruned > 0) console.log(`[Backup] Pruned ${pruned} old backup(s)`)

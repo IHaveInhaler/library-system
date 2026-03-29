@@ -26,7 +26,7 @@ export function useLogin() {
       // If 2FA is required, don't set auth — the LoginPage handles the challenge flow
       if (data.requires2FA) return
       setAuth(data.user, data.accessToken, data.refreshToken)
-      qc.setQueryData(['me'], data.user)
+      qc.invalidateQueries({ queryKey: ['me'] })
     },
   })
 }

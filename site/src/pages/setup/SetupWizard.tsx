@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import {
   BookOpen,
@@ -17,8 +17,10 @@ import {
   Trash2,
   SkipForward,
   ShieldCheck,
+  Database,
+  RotateCcw,
 } from 'lucide-react'
-import { setupApi, type SetupStatus } from '../../api/setup'
+import { setupApi, type SetupStatus, type SetupBackup } from '../../api/setup'
 import { librariesApi } from '../../api/libraries'
 import { groupsApi } from '../../api/groups'
 import { permissionsApi } from '../../api/permissions'
@@ -123,8 +125,21 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 
 // ── Step 0: Welcome & Verify Code ───────────────────────────────────────────
 
-function WelcomeStep({ onVerified }: { onVerified: (token: string) => void }) {
-  const [phase, setPhase] = useState<'intro' | 'waiting' | 'input'>('intro')
+function WelcomeStep({
+  onVerified,
+  backupCount,
+  isDev,
+}: {
+  onVerified: (token: string, path: 'fresh' | 'restore' | 'seed') => void
+  backupCount: number
+  isDev: boolean
+}) {
+  const [phase, setPhase] = useState<'choose' | 'intro' | 'waiting' | 'input'>(
+    backupCount > 0 ? 'choose' : 'intro'
+  )
+  const [chosenPath, setChosenPath] = useState<'fresh' | 'restore' | 'seed' | null>(
+    backupCount > 0 ? null : 'fresh'
+  )
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -147,12 +162,17 @@ function WelcomeStep({ onVerified }: { onVerified: (token: string) => void }) {
     setLoading(true)
     try {
       const { setupToken } = await setupApi.verifyCode(code)
-      onVerified(setupToken)
+      onVerified(setupToken, chosenPath!)
     } catch (err) {
       toast.error(extractError(err))
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleChoose = (path: 'fresh' | 'restore' | 'seed') => {
+    setChosenPath(path)
+    setPhase('intro')
   }
 
   return (
@@ -164,8 +184,69 @@ function WelcomeStep({ onVerified }: { onVerified: (token: string) => void }) {
         Welcome to Library Portal
       </h1>
       <p className="mb-8 text-gray-500 dark:text-gray-400">
-        Let's get your library system set up. First, verify you have access to the server.
+        {phase === 'choose'
+          ? 'How would you like to set up your system?'
+          : "Let's get your library system set up. First, verify you have access to the server."}
       </p>
+
+      {phase === 'choose' && (
+        <div className="space-y-3 text-left">
+          <button
+            onClick={() => handleChoose('restore')}
+            className="flex w-full items-center gap-4 rounded-xl border-2 border-blue-500 bg-blue-50 p-4 text-left transition-colors hover:bg-blue-100 dark:border-blue-500 dark:bg-blue-900/20 dark:hover:bg-blue-900/30"
+          >
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/40">
+              <RotateCcw className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-gray-900 dark:text-white">Restore from backup</span>
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">
+                  {backupCount} available
+                </span>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Restore a previous database backup
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" />
+          </button>
+
+          <button
+            onClick={() => handleChoose('fresh')}
+            className="flex w-full items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 text-left transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700/50"
+          >
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700">
+              <Database className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="font-semibold text-gray-900 dark:text-white">Start fresh</span>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Set up a new library system from scratch
+              </p>
+            </div>
+            <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" />
+          </button>
+
+          {isDev && (
+            <button
+              onClick={() => handleChoose('seed')}
+              className="flex w-full items-center gap-4 rounded-xl border border-dashed border-gray-300 bg-white p-4 text-left transition-colors hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700/50"
+            >
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-900/30">
+                <Terminal className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="font-semibold text-gray-900 dark:text-white">Seed demo data</span>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Populate with sample data and dev accounts
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400" />
+            </button>
+          )}
+        </div>
+      )}
 
       {phase === 'intro' && (
         <div className="space-y-4">
@@ -189,6 +270,15 @@ function WelcomeStep({ onVerified }: { onVerified: (token: string) => void }) {
           <Button onClick={handleGenerate} loading={loading} className="w-full">
             Generate Setup Code
           </Button>
+          {backupCount > 0 && (
+            <button
+              type="button"
+              onClick={() => { setPhase('choose'); setChosenPath(null) }}
+              className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+            >
+              ← Back to options
+            </button>
+          )}
         </div>
       )}
 
@@ -1152,6 +1242,150 @@ function CompleteStep({
   )
 }
 
+// ── Restore from Backup ────────────────────────────────────────────────────
+
+function RestoreStep({ setupToken, onRestored }: { setupToken: string; onRestored: () => void }) {
+  const [backups, setBackups] = useState<SetupBackup[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [restoring, setRestoring] = useState(false)
+  const [restored, setRestored] = useState(false)
+
+  useEffect(() => {
+    setupApi
+      .listBackups(setupToken)
+      .then((list) => {
+        setBackups(list)
+        if (list.length > 0) setSelectedId(list[0].id)
+      })
+      .catch((err) => toast.error(extractError(err)))
+      .finally(() => setLoading(false))
+  }, [setupToken])
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso)
+    return d.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  const handleRestore = async () => {
+    if (!selectedId) return
+    setRestoring(true)
+    try {
+      await setupApi.restoreBackup(setupToken, selectedId)
+      setRestored(true)
+      toast.success('Backup restored successfully')
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 3000)
+    } catch (err) {
+      toast.error(extractError(err))
+    } finally {
+      setRestoring(false)
+    }
+  }
+
+  if (restored) {
+    return (
+      <div className="text-center">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 dark:bg-blue-900/40">
+          <RotateCcw className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400" />
+        </div>
+        <h2 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">Restarting...</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          The database has been restored. The page will reload shortly.
+        </p>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="text-center">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading backups...</p>
+      </div>
+    )
+  }
+
+  if (backups.length === 0) {
+    return (
+      <div className="text-center">
+        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-700">
+          <Database className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+        </div>
+        <h2 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">No Backups Found</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          There are no backups available to restore.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <h2 className="mb-1 text-xl font-bold text-gray-900 dark:text-white">Restore from Backup</h2>
+      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+        Select a backup to restore. This will replace the current database.
+      </p>
+
+      <div className="space-y-2">
+        {backups.map((b) => (
+          <button
+            key={b.id}
+            onClick={() => setSelectedId(b.id)}
+            className={`flex w-full items-center gap-4 rounded-xl border p-4 text-left transition-colors ${
+              selectedId === b.id
+                ? 'border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20'
+                : 'border-gray-200 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700/50'
+            }`}
+          >
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700">
+              <Database className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-gray-900 dark:text-white">{b.label}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {formatDate(b.createdAt)} · {formatSize(b.size)} · {b.reason}
+              </p>
+            </div>
+            <div
+              className={`h-4 w-4 flex-shrink-0 rounded-full border-2 ${
+                selectedId === b.id
+                  ? 'border-blue-500 bg-blue-500'
+                  : 'border-gray-300 dark:border-gray-600'
+              }`}
+            >
+              {selectedId === b.id && (
+                <div className="h-full w-full rounded-full border-2 border-white dark:border-gray-800" />
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <Button
+        onClick={handleRestore}
+        loading={restoring}
+        disabled={!selectedId}
+        className="mt-6 w-full"
+      >
+        <RotateCcw className="h-4 w-4" /> Restore Selected Backup
+      </Button>
+    </div>
+  )
+}
+
 // ── Main Wizard ─────────────────────────────────────────────────────────────
 
 export default function SetupWizard({
@@ -1164,11 +1398,10 @@ export default function SetupWizard({
   const setAuth = useAuthStore((s) => s.setAuth)
   const [step, setStep] = useState(0)
   const [setupToken, setSetupToken] = useState('')
+  const [chosenPath, setChosenPath] = useState<'fresh' | 'restore' | 'seed' | null>(null)
   const [libraries, setLibraries] = useState<Library[]>([])
   const [createdGroups, setCreatedGroups] = useState<string[]>([])
   const [devLoading, setDevLoading] = useState(false)
-  const [devPhase, setDevPhase] = useState<'idle' | 'code-sent' | 'input'>('idle')
-  const [devCode, setDevCode] = useState('')
   const [resumeLoading, setResumeLoading] = useState(false)
 
   const isDev = status?.environment === 'development'
@@ -1176,24 +1409,9 @@ export default function SetupWizard({
 
   const next = () => setStep((s) => s + 1)
 
-  const handleDevGenerate = async () => {
+  const handleDevSeedDirect = async (token: string) => {
     setDevLoading(true)
     try {
-      await setupApi.generateCode()
-      setDevPhase('code-sent')
-      toast.success('Setup code printed to server console')
-    } catch (err) {
-      toast.error(extractError(err))
-    } finally {
-      setDevLoading(false)
-    }
-  }
-
-  const handleDevSeed = async () => {
-    if (devCode.length !== 6) return
-    setDevLoading(true)
-    try {
-      const { setupToken: token } = await setupApi.verifyCode(devCode)
       const res = await setupApi.devSeed(token)
       setAuth(res.user, res.accessToken, res.refreshToken)
       toast.success('Dev environment ready — logged in as admin@library.com')
@@ -1226,13 +1444,25 @@ export default function SetupWizard({
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           {step === 0 && (
             <WelcomeStep
-              onVerified={(token) => {
+              backupCount={status?.backupCount ?? 0}
+              isDev={isDev}
+              onVerified={(token, path) => {
                 setSetupToken(token)
-                next()
+                setChosenPath(path)
+                if (path === 'seed') {
+                  handleDevSeedDirect(token)
+                } else {
+                  next()
+                }
               }}
             />
           )}
-          {step === 1 && <AdminStep setupToken={setupToken} onCreated={next} />}
+          {step === 1 && chosenPath === 'restore' && (
+            <RestoreStep setupToken={setupToken} onRestored={() => onComplete?.()} />
+          )}
+          {step === 1 && chosenPath !== 'restore' && (
+            <AdminStep setupToken={setupToken} onCreated={next} />
+          )}
           {step === 2 && (
             <LibraryStep libraries={libraries} setLibraries={setLibraries} onNext={next} />
           )}
@@ -1267,62 +1497,16 @@ export default function SetupWizard({
           </button>
         )}
 
-        {/* Dev-only options */}
-        {step === 0 && isDev && (
-          <div className="mt-6 space-y-3">
-            {/* Resume existing DB */}
-            {hasExisting && (
-              <button
-                onClick={handleResume}
-                disabled={resumeLoading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              >
-                {resumeLoading ? 'Resuming…' : 'Use existing database →'}
-              </button>
-            )}
-
-            {/* Dev seed shortcut */}
-            {devPhase === 'idle' && (
-              <div className="text-center">
-                <button
-                  onClick={handleDevGenerate}
-                  disabled={devLoading}
-                  className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
-                >
-                  {devLoading ? 'Generating code…' : 'Seed development defaults →'}
-                </button>
-                <p className="mt-1 text-[10px] text-gray-300 dark:text-gray-600">
-                  Requires setup code. Seeds sample data, dev accounts, and skips setup.
-                </p>
-              </div>
-            )}
-
-            {devPhase === 'code-sent' && (
-              <div className="rounded-xl border border-gray-200 bg-white p-4 text-center dark:border-gray-700 dark:bg-gray-800">
-                <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-                  Enter the setup code from <code className="rounded bg-gray-100 px-1 text-xs dark:bg-gray-700">docker compose logs api</code>
-                </p>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={devCode}
-                  onChange={(e) => setDevCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="000000"
-                  className="mb-3 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-center text-xl font-mono tracking-[0.3em] text-gray-900 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-600"
-                  autoFocus
-                />
-                <Button
-                  size="sm"
-                  onClick={handleDevSeed}
-                  loading={devLoading}
-                  disabled={devCode.length !== 6}
-                  className="w-full"
-                >
-                  Seed & Start
-                </Button>
-              </div>
-            )}
+        {/* Resume existing DB — dev only */}
+        {step === 0 && isDev && hasExisting && (
+          <div className="mt-6">
+            <button
+              onClick={handleResume}
+              disabled={resumeLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              {resumeLoading ? 'Resuming...' : 'Use existing database →'}
+            </button>
           </div>
         )}
       </div>

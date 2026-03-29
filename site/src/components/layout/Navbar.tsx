@@ -1,23 +1,26 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { BookOpen, LayoutDashboard, LogOut, Settings, ShieldCheck } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { useAuth, useLogout, useRole } from '../../hooks/useAuth'
+import { useAuth, useLogout, useMe, useRole } from '../../hooks/useAuth'
 import { librariesApi } from '../../api/libraries'
 import { useBrandStore } from '../../store/brand'
 import { Button } from '../ui/Button'
 import { ThemeToggle } from './ThemeToggle'
 
 export function Navbar() {
-  const { user } = useAuth()
+  const { user, accessToken } = useAuth()
   const { isLibrarian, isAdmin } = useRole()
   const logout = useLogout()
   const navigate = useNavigate()
   const { appName, logoUrl } = useBrandStore()
+  const { data: me } = useMe()
+  const locked2FA = !!accessToken && !!me?.requires2FASetup
 
   const { data: libraryCount } = useQuery({
     queryKey: ['libraries', 'count'],
     queryFn: () => librariesApi.list({ limit: 1 }),
     staleTime: 60_000,
+    enabled: !locked2FA,
   })
   const singleLibrary = !isLibrarian && libraryCount?.meta.total === 1
 
@@ -37,7 +40,7 @@ export function Navbar() {
     <nav className="sticky top-0 z-40 border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         <div className="flex items-center gap-6">
-          <Link to="/home" className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+          <Link to={locked2FA ? '/profile' : '/home'} className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
             {logoUrl ? (
               <img src={logoUrl} alt={appName} className="h-6 w-6 rounded object-contain" />
             ) : (
@@ -45,8 +48,8 @@ export function Navbar() {
             )}
             {appName}
           </Link>
-          <NavLink to="/books" className={linkClass}>Books</NavLink>
-          <NavLink to="/libraries" className={linkClass}>{singleLibrary ? 'Library' : 'Libraries'}</NavLink>
+          {!locked2FA && <NavLink to="/books" className={linkClass}>Books</NavLink>}
+          {!locked2FA && <NavLink to="/libraries" className={linkClass}>{singleLibrary ? 'Library' : 'Libraries'}</NavLink>}
         </div>
 
         <div className="flex items-center gap-3">
@@ -54,21 +57,25 @@ export function Navbar() {
 
           {user ? (
             <>
-              <NavLink to="/dashboard" className={linkClass}>
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </NavLink>
-              {isLibrarian && (
-                <NavLink to="/manage" className={linkClass}>
-                  <Settings className="h-4 w-4" />
-                  Manage
-                </NavLink>
-              )}
-              {isAdmin && (
-                <NavLink to="/admin" className={linkClass}>
-                  <ShieldCheck className="h-4 w-4" />
-                  Admin
-                </NavLink>
+              {!locked2FA && (
+                <>
+                  <NavLink to="/dashboard" className={linkClass}>
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </NavLink>
+                  {isLibrarian && (
+                    <NavLink to="/manage" className={linkClass}>
+                      <Settings className="h-4 w-4" />
+                      Manage
+                    </NavLink>
+                  )}
+                  {isAdmin && (
+                    <NavLink to="/admin" className={linkClass}>
+                      <ShieldCheck className="h-4 w-4" />
+                      Admin
+                    </NavLink>
+                  )}
+                </>
               )}
               <button
                 onClick={handleLogout}

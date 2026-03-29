@@ -112,7 +112,7 @@ export async function deleteShelf(id: string) {
   }
   try {
     const { createBackup } = await import('../backups/backups.service')
-    createBackup('pre-delete', `Before deleting shelf ${shelf.code}`)
+    await createBackup('pre-delete', `Before deleting shelf ${shelf.code}`)
   } catch (err) {
     console.error('[Backup] Pre-delete backup failed:', err)
   }
@@ -125,7 +125,7 @@ export async function migratePosition(fromPosition: string, toPosition: string) 
 
   try {
     const { createBackup } = await import('../backups/backups.service')
-    createBackup('pre-delete', `Before migrating position ${fromPosition} → ${toPosition}`)
+    await createBackup('pre-delete', `Before migrating position ${fromPosition} → ${toPosition}`)
   } catch (err) {
     console.error('[Backup] Pre-migrate backup failed:', err)
   }

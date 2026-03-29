@@ -9,6 +9,7 @@ import { fetchByIsbn } from '../../lib/openLibrary'
 import { env } from '../../config/env'
 import { ForbiddenError, UnauthorizedError, ConflictError } from '../../errors'
 import { getSetting } from '../../lib/settings'
+import { listBackups } from '../backups/backups.service'
 
 // ── In-memory setup code store ──────────────────────────────────────────────
 
@@ -48,8 +49,14 @@ export async function getStatus() {
     hasExistingData = userCount > 0
   }
 
+  let backupCount = 0
+  if (setup) {
+    try { backupCount = listBackups().length } catch { /* backups dir may not exist */ }
+  }
+
   return {
     needsSetup: setup,
+    backupCount,
     devMode: devSetting?.value === 'true',
     devSeeded: seededSetting?.value === 'true',
     environment: env.NODE_ENV,
@@ -197,6 +204,9 @@ export async function completeSetup() {
 }
 
 export async function setDevMode(enabled: boolean) {
+  if (process.env.NODE_ENV !== 'development') {
+    throw new ForbiddenError('Developer mode is only available in development environments')
+  }
   await prisma.systemSetting.upsert({
     where: { key: 'dev.enabled' },
     create: { key: 'dev.enabled', value: enabled ? 'true' : 'false' },
@@ -365,11 +375,28 @@ export async function devSeed() {
   }
 }
 
+export function listSetupBackups() {
+  return listBackups().map((b) => ({
+    id: b.id,
+    label: b.label,
+    size: b.size,
+    reason: b.reason,
+    createdAt: b.createdAt,
+  }))
+}
+
+export async function restoreFromBackup(backupId: string): Promise<void> {
+  await guardSetup()
+  const { safeRestore } = await import('../backups/backups.service')
+  console.log(`[Setup] Restoring from backup ${backupId}`)
+  await safeRestore(backupId)
+}
+
 export async function factoryReset() {
   // Auto-backup before factory reset
   try {
     const { createBackup } = await import('../backups/backups.service')
-    createBackup('pre-delete', 'Before factory reset')
+    await createBackup('pre-delete', 'Before factory reset')
   } catch (err) {
     console.error('[Backup] Pre-reset backup failed:', err)
   }
@@ -383,6 +410,7 @@ export async function factoryReset() {
     prisma.passwordResetToken.deleteMany(),
     prisma.refreshToken.deleteMany(),
     prisma.reservation.deleteMany(),
+    prisma.damageReport.deleteMany(),
     prisma.loan.deleteMany(),
     prisma.bookCopy.deleteMany(),
     prisma.book.deleteMany(),

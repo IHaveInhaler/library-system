@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit'
 import { env } from './config/env'
 import { errorHandler } from './middleware/errorHandler'
 import { authenticate } from './middleware/authenticate'
+import { require2FACompleted } from './middleware/require2FASetup'
 
 import authRouter from './modules/auth/auth.router'
 import usersRouter from './modules/users/users.router'
@@ -88,7 +89,7 @@ export function createApp() {
   app.use('/api/auth/2fa/challenge', authLimiter)
 
   app.use('/api/auth', authRouter)
-  app.use('/api/users', authenticate, usersRouter)
+  app.use('/api/users', authenticate, require2FACompleted, usersRouter)
   app.use('/api/libraries', librariesRouter)
   app.use('/api/shelves', shelvesRouter)
   app.use('/api/books', booksRouter)
@@ -99,23 +100,24 @@ export function createApp() {
       res.json(config)
     } catch (err) { next(err) }
   })
-  app.use('/api/loans', authenticate, loansRouter)
-  app.use('/api/damage-reports', authenticate, damageReportsRouter)
-  app.use('/api/reservations', authenticate, reservationsRouter)
+  app.use('/api/loans', authenticate, require2FACompleted, loansRouter)
+  app.use('/api/damage-reports', authenticate, require2FACompleted, damageReportsRouter)
+  app.use('/api/reservations', authenticate, require2FACompleted, reservationsRouter)
   app.use('/api/permissions', permissionsRouter)
   app.use('/api/groups', groupsRouter)
   app.use('/api/categories', categoriesRouter)
   app.use('/api/barcodes', barcodesRouter)
   app.use('/api/membership-types', membershipTypesRouter)
-  app.use('/api/books', authenticate, bookNotesRouter) // book notes routes (nested under /books/:bookId/notes)
-  app.use('/api/audit', authenticate, auditRouter)
+  app.use('/api/books', authenticate, require2FACompleted, bookNotesRouter) // book notes routes (nested under /books/:bookId/notes)
+  app.use('/api/audit', authenticate, require2FACompleted, auditRouter)
   app.use('/api/backups', backupsRouter)
   app.get('/api/settings/public', getPublicSettings)
-  app.use('/api/settings', authenticate, settingsRouter)
+  app.use('/api/settings', authenticate, require2FACompleted, settingsRouter)
   app.use('/api', uploadRoutes)
   app.use('/api/auth/2fa', twoFactorRouter)
   // Rate limit setup code verification — 5 attempts per 15 minutes
   app.use('/api/setup/verify-code', rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: { code: 'RATE_LIMITED', message: 'Too many attempts' } }))
+  app.use('/api/setup/restore-backup', rateLimit({ windowMs: 15 * 60 * 1000, max: 5, message: { code: 'RATE_LIMITED', message: 'Too many attempts' } }))
   app.use('/api/setup', setupRouter)
 
   app.use(errorHandler)

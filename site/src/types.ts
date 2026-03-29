@@ -29,6 +29,7 @@ export interface User {
   activationReason?: string | null
   staffLibraryIds?: string[] | null  // null = admin (all libraries), [] = none, [...] = specific
   requires2FASetup?: boolean
+  required2FAMethod?: 'any' | 'security-key'
   createdAt: string
   updatedAt: string
 }

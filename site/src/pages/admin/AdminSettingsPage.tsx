@@ -1220,6 +1220,7 @@ function FactoryResetSection() {
 function DeveloperSection() {
   const [devMode, setDevMode] = useState(false)
   const [devSeeded, setDevSeeded] = useState(false)
+  const [isDev, setIsDev] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -1227,8 +1228,11 @@ function DeveloperSection() {
     setupApi.status().then((s) => {
       setDevMode(s.devMode)
       setDevSeeded(s.devSeeded)
+      setIsDev(s.environment === 'development')
     }).catch(() => {})
   }, [])
+
+  if (!isDev) return null
 
   const handleToggle = async () => {
     // Show warning before enabling

@@ -25,7 +25,8 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config!
 
-    if (error.response?.status !== 401 || (original as any)._retry) {
+    // Don't try to refresh for non-401, already-retried, or auth endpoints (login, register, 2FA)
+    if (error.response?.status !== 401 || (original as any)._retry || original.url?.startsWith('/auth/')) {
       return Promise.reject(error)
     }
 

@@ -117,22 +117,24 @@ export async function login(input: LoginInput) {
   if (!valid) throw new UnauthorizedError('Invalid credentials')
 
   // Check if 2FA is required
-  const has2FA = user.totpVerified || (await prisma.securityKey.count({ where: { userId: user.id } })) > 0
-  const devMode = process.env.NODE_ENV === 'development'
+  const keyCount = await prisma.securityKey.count({ where: { userId: user.id } })
+  const has2FA = user.totpVerified || keyCount > 0
+  const devMode = (await getSetting('dev.enabled')) === 'true'
   const securityKeysOnly = (await getSetting('2fa.securityKeysOnly')) === 'true'
 
   if (has2FA && !devMode) {
     const methods: string[] = []
     if (user.totpVerified && !securityKeysOnly) methods.push('totp')
-    const keyCount = await prisma.securityKey.count({ where: { userId: user.id } })
     if (keyCount > 0) methods.push('securityKey')
+    const backupCodeCount = await prisma.backupCode.count({ where: { userId: user.id } })
+    if (backupCodeCount > 0) methods.push('backupCode')
     if (methods.length > 0) {
       const challengeToken = sign2FAChallenge(user.id)
       return { challengeToken, requires2FA: true, methods }
     }
   }
 
-  // Check if 2FA is required by role but not set up (uses same devMode from NODE_ENV)
+  // Check if 2FA is required by role but not set up
   if (!devMode) {
     const requiredRolesJson = await getSetting('2fa.requiredRoles')
     if (requiredRolesJson) {
@@ -244,6 +246,8 @@ export async function getMe(userId: string) {
       avatarUrl: true,
       role: true,
       isActive: true,
+      totpVerified: true,
+      pending2FA: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -263,16 +267,19 @@ export async function getMe(userId: string) {
   }
 
   // Check if 2FA setup is required for this user
-  const fullUser = await prisma.user.findUnique({ where: { id: userId }, select: { totpVerified: true, pending2FA: true } })
   const keyCount = await prisma.securityKey.count({ where: { userId } })
-  const has2FA = fullUser?.totpVerified || keyCount > 0
+  const has2FA = user.totpVerified || keyCount > 0
 
   let requires2FASetup = false
-  const devMode = process.env.NODE_ENV === 'development'
+  let required2FAMethod: 'any' | 'security-key' = 'any'
+  const devMode = (await getSetting('dev.enabled')) === 'true'
+  const securityKeysOnly = (await getSetting('2fa.securityKeysOnly')) === 'true'
+  const meetsRequirement = securityKeysOnly ? keyCount > 0 : has2FA
 
-  // Admin-forced pending 2FA (clears automatically once 2FA is set up)
-  if (fullUser?.pending2FA && !has2FA && !devMode) {
-    requires2FASetup = true
+  // Admin-forced pending 2FA (clears automatically once requirement is met)
+  if (user.pending2FA && !devMode) {
+    if (securityKeysOnly) required2FAMethod = 'security-key'
+    if (!meetsRequirement) requires2FASetup = true
   }
 
   // Role-based 2FA requirement
@@ -281,18 +288,19 @@ export async function getMe(userId: string) {
     if (requiredRolesJson) {
       try {
         const requiredRoles = JSON.parse(requiredRolesJson)
-        if (requiredRoles.includes(user.role) && !has2FA) {
-          const securityKeysOnly = (await getSetting('2fa.securityKeysOnly')) === 'true'
-          requires2FASetup = securityKeysOnly ? keyCount === 0 : !fullUser?.totpVerified && keyCount === 0
+        if (requiredRoles.includes(user.role)) {
+          if (securityKeysOnly) required2FAMethod = 'security-key'
+          requires2FASetup = !meetsRequirement
         }
       } catch { /* ignore */ }
     }
   }
 
-  // Auto-clear pending2FA once 2FA is set up
-  if (fullUser?.pending2FA && has2FA) {
+  // Auto-clear pending2FA once user meets the actual 2FA requirement
+  if (user.pending2FA && meetsRequirement) {
     await prisma.user.update({ where: { id: userId }, data: { pending2FA: false } })
   }
 
-  return { ...user, staffLibraryIds, requires2FASetup }
+  const { totpVerified: _, pending2FA: _p, ...safeUser } = user
+  return { ...safeUser, staffLibraryIds, requires2FASetup, required2FAMethod: requires2FASetup ? required2FAMethod : undefined }
 }

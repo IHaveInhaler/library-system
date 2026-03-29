@@ -857,6 +857,48 @@ Then the client calls:
 
 On success: returns `{ user, accessToken, refreshToken }`.
 
+### Backup Codes
+
+Zero-knowledge recovery codes for accounts with 2FA enabled. Server stores only bcrypt hashes — plaintext codes are shown once and never stored.
+
+#### Schema
+
+`BackupCode` model: `id`, `userId`, `codeHash` (bcrypt), `createdAt`.
+
+#### Generation
+
+- 8 codes generated, format `XXXX-XXXX-XXXX-XXXX` (16 chars, uppercase alphanumeric, no ambiguous chars: 0/O/I/1/L excluded)
+- Codes auto-generate after first 2FA method is added (TOTP verified or security key registered)
+- Can be regenerated from profile (requires password confirmation)
+- Old codes are deleted on regeneration
+
+#### `POST /api/auth/2fa/backup-codes/generate`
+Requires: Bearer token + password (for regeneration).
+```json
+{ "password": "..." }
+```
+Returns plaintext codes (shown once):
+```json
+{ "codes": ["ABCD-EF23-GHKM-NP45", ...] }
+```
+
+#### `GET /api/auth/2fa/backup-codes/count`
+Requires: Bearer token.
+```json
+{ "count": 8 }
+```
+
+#### Using a backup code during login
+
+`POST /api/auth/2fa/challenge` with `{ challengeToken, method: "backupCode", code: "ABCD-EF23-GHKM-NP45" }`
+
+On match:
+1. Disables ALL 2FA (clears TOTP secret, deletes all security keys, deletes all backup codes, clears pending2FA)
+2. Returns `{ user, accessToken, refreshToken }`
+3. Audit log entry: `2FA_RESET_BY_BACKUP_CODE`
+
+Login flow includes `backupCode` in methods array when codes exist.
+
 ---
 
 ## New Permissions

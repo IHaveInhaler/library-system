@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'sonner'
@@ -9,6 +9,8 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { PageSpinner } from './components/ui/Spinner'
 import { setupApi } from './api/setup'
 import { useBrandStore } from './store/brand'
+import { useAuthStore } from './store/auth'
+import { useMe } from './hooks/useAuth'
 
 import SetupWizard from './pages/setup/SetupWizard'
 import HomePage from './pages/public/HomePage'
@@ -99,6 +101,7 @@ function AppRoutes() {
           <>
             <OverdueBanner />
             <Navbar />
+            <TwoFARedirect />
             <Routes>
               <Route path="/home" element={<HomePage />} />
               <Route path="/books" element={<BooksPage />} />
@@ -143,6 +146,26 @@ function AppRoutes() {
       />
     </Routes>
   )
+}
+
+/**
+ * Redirects to /profile if logged in and 2FA setup is required.
+ * Renders nothing — just performs the redirect as a side effect.
+ */
+function TwoFARedirect() {
+  const { accessToken } = useAuthStore()
+  const { data: me, isLoading } = useMe()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const hasSession = !!accessToken || !!localStorage.getItem('refreshToken')
+
+  useEffect(() => {
+    if (hasSession && !isLoading && me?.requires2FASetup && location.pathname !== '/profile') {
+      navigate('/profile', { replace: true })
+    }
+  }, [hasSession, isLoading, me?.requires2FASetup, location.pathname, navigate])
+
+  return null
 }
 
 export default function App() {

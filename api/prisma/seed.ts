@@ -10,6 +10,7 @@ async function main() {
   // Wipe in dependency order
   await prisma.libraryMembership.deleteMany()
   await prisma.reservation.deleteMany()
+  await prisma.damageReport.deleteMany()
   await prisma.loan.deleteMany()
   await prisma.bookCopy.deleteMany()
   await prisma.shelf.deleteMany()

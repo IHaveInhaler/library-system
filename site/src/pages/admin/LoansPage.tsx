@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -22,16 +22,32 @@ import type { User, Book, BookCopy, Loan } from '../../types'
 
 // ── Issue Loan Modal ──────────────────────────────────────────────────────────
 
-function IssueLoanModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: () => void }) {
+function IssueLoanModal({ open, onClose, onSuccess, initialCopyId }: { open: boolean; onClose: () => void; onSuccess: () => void; initialCopyId?: string | null }) {
   const [userSearch, setUserSearch] = useState('')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
 
   const [bookSearch, setBookSearch] = useState('')
   const [selectedBook, setSelectedBook] = useState<Book | null>(null)
   const [selectedCopy, setSelectedCopy] = useState<BookCopy | null>(null)
+  const [copyLocked, setCopyLocked] = useState(false) // true when pre-filled from scan
 
   const [dueDate, setDueDate] = useState('')
   const [notes, setNotes] = useState('')
+
+  // Auto-populate from scanned copy
+  const { data: prefillCopy } = useQuery({
+    queryKey: ['copies', initialCopyId],
+    queryFn: () => copiesApi.get(initialCopyId!),
+    enabled: !!initialCopyId && open,
+  })
+
+  useEffect(() => {
+    if (prefillCopy && open) {
+      setSelectedBook(prefillCopy.book as any)
+      setSelectedCopy(prefillCopy)
+      setCopyLocked(true)
+    }
+  }, [prefillCopy, open])
 
   const { data: users } = useQuery({
     queryKey: ['users', 'search', userSearch],
@@ -48,7 +64,7 @@ function IssueLoanModal({ open, onClose, onSuccess }: { open: boolean; onClose: 
   const { data: copies } = useQuery({
     queryKey: ['books', selectedBook?.id, 'copies'],
     queryFn: () => booksApi.copies(selectedBook!.id),
-    enabled: !!selectedBook,
+    enabled: !!selectedBook && !copyLocked,
   })
 
   const availableCopies = copies?.filter((c) => c.status === 'AVAILABLE') ?? []
@@ -61,7 +77,7 @@ function IssueLoanModal({ open, onClose, onSuccess }: { open: boolean; onClose: 
 
   const reset = () => {
     setUserSearch(''); setSelectedUser(null)
-    setBookSearch(''); setSelectedBook(null); setSelectedCopy(null)
+    setBookSearch(''); setSelectedBook(null); setSelectedCopy(null); setCopyLocked(false)
     setDueDate(''); setNotes('')
   }
 
@@ -214,7 +230,9 @@ function IssueLoanModal({ open, onClose, onSuccess }: { open: boolean; onClose: 
 export default function LoansPage() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
-  const [issueOpen, setIssueOpen] = useState(false)
+  const copyIdParam = params.get('copyId')
+  const [issueOpen, setIssueOpen] = useState(!!copyIdParam)
+  const [issueCopyId, setIssueCopyId] = useState<string | null>(copyIdParam)
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null)
   const [search, setSearch] = useState('')
   const page = Number(params.get('page') ?? 1)
@@ -322,8 +340,9 @@ export default function LoansPage() {
 
       <IssueLoanModal
         open={issueOpen}
-        onClose={() => setIssueOpen(false)}
-        onSuccess={() => { setIssueOpen(false); qc.invalidateQueries({ queryKey: ['loans'] }) }}
+        onClose={() => { setIssueOpen(false); setIssueCopyId(null); if (copyIdParam) setParams((p) => { p.delete('copyId'); return p }) }}
+        onSuccess={() => { setIssueOpen(false); setIssueCopyId(null); if (copyIdParam) setParams((p) => { p.delete('copyId'); return p }); qc.invalidateQueries({ queryKey: ['loans'] }) }}
+        initialCopyId={issueCopyId}
       />
       {selectedLoan && <LoanDrawer loan={selectedLoan} onClose={() => { setSelectedLoan(null); qc.invalidateQueries({ queryKey: ['loans'] }) }} />}
     </div>

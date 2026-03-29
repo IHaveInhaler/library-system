@@ -248,7 +248,7 @@ function InlineCopyResult({ copy, onDismiss }: { copy: any; onDismiss: () => voi
           <BookOpen className="h-3.5 w-3.5" /> Book
         </Button>
         {copy.status === 'AVAILABLE' && (
-          <Link to="/manage/loans" onClick={onDismiss}>
+          <Link to={`/manage/loans?copyId=${copy.id}`} onClick={onDismiss}>
             <Button size="sm"><ClipboardList className="h-3.5 w-3.5" /> Issue Loan</Button>
           </Link>
         )}

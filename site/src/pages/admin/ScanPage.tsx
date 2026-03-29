@@ -297,7 +297,7 @@ function CopyResult({ copy }: { copy: any }) {
           <Button size="sm" variant="secondary"><BookOpen className="h-4 w-4" /> View Book</Button>
         </Link>
         {copy.status === 'AVAILABLE' && (
-          <Link to="/manage/loans">
+          <Link to={`/manage/loans?copyId=${copy.id}`}>
             <Button size="sm"><ClipboardList className="h-4 w-4" /> Issue Loan</Button>
           </Link>
         )}
