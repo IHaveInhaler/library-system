@@ -212,6 +212,7 @@ function IssueLoanModal({ open, onClose, onSuccess }: { open: boolean; onClose: 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LoansPage() {
+  const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const [issueOpen, setIssueOpen] = useState(false)
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null)
@@ -292,10 +293,22 @@ export default function LoansPage() {
                       {loan.damageReports && loan.damageReports.some((d) => !d.resolvedAt) && (
                         <AlertTriangle className={`h-3.5 w-3.5 flex-shrink-0 ${loan.damageReports.some((d) => !d.resolvedAt && d.type !== 'MEMBER_REPORT') ? 'text-red-500' : 'text-amber-500'}`} />
                       )}
-                      {loan.bookCopy.book.title}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/books/${loan.bookCopy.book.id}`) }}
+                        className="text-blue-600 hover:underline dark:text-blue-400"
+                      >
+                        {loan.bookCopy.book.title}
+                      </button>
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{loan.user.firstName} {loan.user.lastName}</td>
+                  <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/manage/users?search=${encodeURIComponent(loan.user.email)}`) }}
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      {loan.user.firstName} {loan.user.lastName}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(loan.dueDate).toLocaleDateString()}</td>
                   <td className="px-4 py-3"><LoanStatusBadge status={loan.status} /></td>
                 </tr>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Bookmark } from 'lucide-react'
 import { reservationsApi } from '../../api/reservations'
@@ -106,6 +106,7 @@ export default function ReservationsPage() {
   const [params, setParams] = useSearchParams()
   const [fulfillTarget, setFulfillTarget] = useState<Reservation | null>(null)
   const qc = useQueryClient()
+  const navigate = useNavigate()
 
   const page = Number(params.get('page') ?? 1)
   const status = params.get('status') ?? ''
@@ -170,9 +171,21 @@ export default function ReservationsPage() {
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {data.data.map((r) => (
                 <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{r.book.title}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                    <button
+                      onClick={() => navigate(`/books/${r.bookId}`)}
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      {r.book.title}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                    {r.user.firstName} {r.user.lastName}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/manage/users?search=${encodeURIComponent(r.user.email)}`) }}
+                      className="text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      {r.user.firstName} {r.user.lastName}
+                    </button>
                     <span className="ml-1 text-xs text-gray-400 dark:text-gray-500">({r.user.email})</span>
                   </td>
                   <td className="px-4 py-3 text-gray-500 dark:text-gray-400">

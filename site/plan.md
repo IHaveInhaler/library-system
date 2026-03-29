@@ -308,6 +308,31 @@ All list pages use the `meta` object returned by the API (`page`, `limit`, `tota
 
 API errors are normalised by the Axios client into `{ code, message, errors? }`. TanStack Query's `onError` feeds them to Sonner toasts globally.
 
+### Entity Links (Site Connectivity)
+
+Every entity name shown in the UI should be a clickable link to its detail page. This makes the site feel connected — staff can navigate from any entity to its full context.
+
+**Navigation targets:**
+- User names → `/manage/users?search=<email>`
+- Book titles → `/books/<id>`
+- Library names → `/manage/libraries` (filtered if possible)
+- Barcodes → `/manage/books` (filtered)
+- Loan references → `/manage/loans`
+
+**Implementation:** Use `useNavigate()` + `onClick` in drawers/modals, `<Link>` in tables. Check role before rendering links to staff pages. See `web-design.md` Entity Links section for styling.
+
+### Mini-Menu Pagination
+
+Lists inside drawers and compact sections show **3 items per page** with page buttons (bottom-right). Uses local state, not URL params. Applies to: user drawer tabs, book drawer copy lists, damage report sections, and any inline list with 3+ items. See `web-design.md` Mini-Menu Pagination for the pattern.
+
+### Tabbed Detail Views
+
+Drawers with multiple content categories use horizontal tabs. Existing examples: ManageUserDrawer (details/memberships/loans/reservations/activity), ManageBooksPage book drawer (details/copies). Tab content is lazy-loaded (query only fires when tab is active). See `web-design.md` Tabbed Detail Views for styling.
+
+### Damage Reporting
+
+Full damage reporting system with configurable conditions, resolution outcomes (DISMISSED/WARNING/CONFIRMED), and damage history per user and copy. See `api/api.md` Damage Reports section and the design spec at `docs/superpowers/specs/2026-03-28-damage-reporting-design.md`.
+
 ---
 
 ## Admin Pages — Detailed Design

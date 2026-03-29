@@ -355,6 +355,84 @@ Common mappings:
 
 ---
 
+## Entity Links
+
+Every entity name (user, book, library, shelf, loan) shown anywhere in the UI should be clickable when context allows navigation. This connects the site — staff can click through from any entity to its detail page.
+
+### Styling
+```
+text-blue-600 hover:underline dark:text-blue-400
+```
+
+### Rules
+- **User names** → `/manage/users?search=<email>` (opens the user in the users list, clicks through to their drawer)
+- **Book titles** → `/books/<id>` (book detail page)
+- **Library names** → `/manage/libraries` or the library detail if it exists
+- **Barcodes / copy references** → `/manage/books` filtered to that book
+- Use `<button>` with `onClick={() => navigate(...)}` inside drawers/modals (not `<Link>`, which would close the modal)
+- Use `<Link>` in tables and page content
+- Never link to something the user doesn't have permission to see — check role before rendering as a link
+
+### Where to apply
+- Table cells in `/manage/loans`, `/manage/books`, `/manage/users`
+- Drawer detail fields (member name, approved by, book title, library)
+- Inline lists (damage reports → reporter name, book title)
+- Member dashboard (book titles in active loans → book detail)
+
+---
+
+## Mini-Menu Pagination
+
+When lists appear inside drawers, modals, or compact sections, limit visible items to **3 per page** with page buttons. This prevents drawers from becoming endlessly scrollable.
+
+### Pattern
+```tsx
+const perPage = 3
+const paged = items.slice((page - 1) * perPage, page * perPage)
+const totalPages = Math.ceil(items.length / perPage)
+```
+
+### Page buttons
+```
+rounded px-2.5 py-1 text-xs font-medium
+Active:   bg-blue-600 text-white
+Inactive: bg-gray-100 text-gray-600 hover:bg-gray-200
+          dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600
+```
+
+### Where to apply
+- User drawer: loans tab, reservations tab, damage reports section
+- Book drawer/detail: copies list, loan history per copy
+- Any inline list inside a drawer or modal with more than 3 items
+
+---
+
+## Tabbed Detail Views
+
+When a drawer or detail section has multiple content categories, use a horizontal tab bar. This is the "mini-menu" pattern — tabs sit at the top of the content area.
+
+### Tab styling
+```
+Inactive: text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white
+Active:   border-b-2 border-blue-600 text-blue-600 dark:text-blue-400 dark:border-blue-400
+Container: flex border-b border-gray-200 dark:border-gray-700
+Tab:       px-4 py-2.5 text-sm font-medium capitalize
+```
+
+### When to use tabs
+- **User drawer** — details, memberships, loans, reservations, activity (already implemented)
+- **Book detail drawer** in `/manage/books` — details, copies (already implemented)
+- **Loan drawer** — consider if content grows beyond current single-scroll
+- Any drawer/modal where content naturally splits into 2+ categories
+
+### Rules
+- Keep tab count under 6
+- Default to the first tab
+- Lazy-load tab content (only query when tab is active)
+- Tab state is local (not URL-persisted) — it resets when the drawer closes
+
+---
+
 ## Anti-Patterns (Do NOT)
 
 - No `Inter`, `Roboto`, `Arial`, or system font declarations — use Tailwind defaults

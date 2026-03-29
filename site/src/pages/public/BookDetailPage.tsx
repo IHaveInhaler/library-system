@@ -46,6 +46,8 @@ export default function BookDetailPage() {
 
   const [expandedCopy, setExpandedCopy] = useState<string | null>(null)
   const [loanModal, setLoanModal] = useState<BookCopy | null>(null)
+  const [copiesPage, setCopiesPage] = useState(1)
+  const COPIES_PER_PAGE = 3
 
   if (isLoading) return <PageSpinner />
   if (!book) return null
@@ -119,24 +121,45 @@ export default function BookDetailPage() {
       </div>
 
       {/* Copies */}
-      {copies && copies.length > 0 && (
-        <div className="mt-10">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Copies</h2>
-          <div className="space-y-2">
-            {copies.map((copy) => (
-              <CopyRow
-                key={copy.id}
-                copy={copy}
-                expanded={expandedCopy === copy.id}
-                onToggle={() => setExpandedCopy(expandedCopy === copy.id ? null : copy.id)}
-                canManage={hasStaffAccess(copy.shelf.library.id)}
-                isStaff={isLibrarian}
-                onLoan={() => setLoanModal(copy)}
-              />
-            ))}
+      {copies && copies.length > 0 && (() => {
+        const totalPages = Math.ceil(copies.length / COPIES_PER_PAGE)
+        const paged = copies.slice((copiesPage - 1) * COPIES_PER_PAGE, copiesPage * COPIES_PER_PAGE)
+        return (
+          <div className="mt-10">
+            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Copies</h2>
+            <div className="space-y-2">
+              {paged.map((copy) => (
+                <CopyRow
+                  key={copy.id}
+                  copy={copy}
+                  expanded={expandedCopy === copy.id}
+                  onToggle={() => setExpandedCopy(expandedCopy === copy.id ? null : copy.id)}
+                  canManage={hasStaffAccess(copy.shelf.library.id)}
+                  isStaff={isLibrarian}
+                  onLoan={() => setLoanModal(copy)}
+                />
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <div className="mt-3 flex items-center justify-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setCopiesPage(p)}
+                    className={`h-8 w-8 rounded-lg text-sm font-medium transition-colors ${
+                      p === copiesPage
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* No copies — prompt to reserve */}
       {copies && copies.length === 0 && (
@@ -203,7 +226,16 @@ function CopyRow({
         onClick={onToggle}
       >
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500 dark:text-gray-400">{copy.shelf.library.name}</span>
+          {isStaff ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate('/manage/libraries') }}
+              className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+            >
+              {copy.shelf.library.name}
+            </button>
+          ) : (
+            <span className="text-sm text-gray-500 dark:text-gray-400">{copy.shelf.library.name}</span>
+          )}
           <span className="font-mono text-xs text-gray-400 dark:text-gray-500">{copy.shelf.code}</span>
         </div>
         <div className="flex items-center gap-3">
@@ -229,7 +261,16 @@ function CopyRow({
             <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-500 dark:text-blue-400" />
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {copy.shelf.library.name} — Shelf {copy.shelf.code}
+                {isStaff ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); navigate('/manage/libraries') }}
+                    className="text-blue-600 hover:underline dark:text-blue-400"
+                  >
+                    {copy.shelf.library.name}
+                  </button>
+                ) : (
+                  copy.shelf.library.name
+                )} — Shelf {copy.shelf.code}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 Label: <span className="font-mono">{copy.shelf.label}</span>

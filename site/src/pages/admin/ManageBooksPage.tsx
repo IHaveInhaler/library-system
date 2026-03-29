@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { BookOpen, Search, X, Plus, Trash2, AlertTriangle, Upload, Image as ImageIcon } from 'lucide-react'
 import { PrintButton } from './BarcodesPage'
@@ -28,8 +28,11 @@ type Genre = typeof GENRES[number]
 // ── Book Detail Drawer ─────────────────────────────────────────────────────────
 function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [tab, setTab] = useState<'details' | 'copies' | 'loans' | 'reservations'>('details')
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [copyPage, setCopyPage] = useState(1)
+  const COPIES_PER_PAGE = 3
 
   // ── Details tab ──
   const [form, setForm] = useState({
@@ -300,12 +303,15 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
             <div className="space-y-3">
               {!copies ? <PageSpinner /> : copies.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">No copies registered.</p>
-              ) : copies.map((copy: BookCopy) => (
+              ) : copies.slice((copyPage - 1) * COPIES_PER_PAGE, copyPage * COPIES_PER_PAGE).map((copy: BookCopy) => (
                 <div key={copy.id} className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="font-mono text-sm font-medium text-gray-900 dark:text-white">{copy.barcode}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{copy.shelf.library.name} · {copy.shelf.code}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <button onClick={() => { onClose(); navigate(`/manage/libraries`) }} className="text-blue-600 hover:underline dark:text-blue-400">{copy.shelf.library.name}</button>
+                        {' · '}{copy.shelf.code}
+                      </p>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <CopyStatusBadge status={copy.status} />
@@ -345,6 +351,20 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
                   </div>
                 </div>
               ))}
+
+              {/* Copy pagination */}
+              {copies && copies.length > COPIES_PER_PAGE && (
+                <div className="flex items-center justify-center gap-1 pt-1">
+                  {Array.from({ length: Math.ceil(copies.length / COPIES_PER_PAGE) }, (_, i) => i + 1).map((p) => (
+                    <button key={p} onClick={() => setCopyPage(p)}
+                      className={`h-7 min-w-[1.75rem] rounded-md px-2 text-xs font-medium transition-colors ${p === copyPage
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'}`}>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Add copy */}
               {addCopy ? (
@@ -415,7 +435,10 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
               ) : bookLoans.map((loan: Loan) => (
                 <div key={loan.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                   <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{loan.user.firstName} {loan.user.lastName}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      <button onClick={(e) => { e.stopPropagation(); onClose(); navigate(`/manage/users?search=${encodeURIComponent(loan.user.email)}`) }}
+                        className="text-blue-600 hover:underline dark:text-blue-400">{loan.user.firstName} {loan.user.lastName}</button>
+                    </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {loan.bookCopy.barcode} · Borrowed {new Date(loan.borrowedAt).toLocaleDateString()}
                       {loan.returnedAt ? ` · Returned ${new Date(loan.returnedAt).toLocaleDateString()}` : ` · Due ${new Date(loan.dueDate).toLocaleDateString()}`}
@@ -520,7 +543,10 @@ function BookDrawer({ book, onClose }: { book: Book; onClose: () => void }) {
               ) : bookReservations.data.map((r: Reservation) => (
                 <div key={r.id} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                   <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{r.user.firstName} {r.user.lastName}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      <button onClick={(e) => { e.stopPropagation(); onClose(); navigate(`/manage/users?search=${encodeURIComponent(r.user.email)}`) }}
+                        className="text-blue-600 hover:underline dark:text-blue-400">{r.user.firstName} {r.user.lastName}</button>
+                    </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       Reserved {new Date(r.reservedAt).toLocaleDateString()}
                       {r.expiresAt && ` · Expires ${new Date(r.expiresAt).toLocaleDateString()}`}
