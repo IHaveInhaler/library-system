@@ -1244,7 +1244,7 @@ function CompleteStep({
 
 // ── Restore from Backup ────────────────────────────────────────────────────
 
-function RestoreStep({ setupToken, onRestored }: { setupToken: string; onRestored: () => void }) {
+function RestoreStep({ setupToken, onRestored: _onRestored }: { setupToken: string; onRestored: () => void }) {
   const [backups, setBackups] = useState<SetupBackup[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -1401,7 +1401,7 @@ export default function SetupWizard({
   const [chosenPath, setChosenPath] = useState<'fresh' | 'restore' | 'seed' | null>(null)
   const [libraries, setLibraries] = useState<Library[]>([])
   const [createdGroups, setCreatedGroups] = useState<string[]>([])
-  const [devLoading, setDevLoading] = useState(false)
+  const [, setSeedLoading] = useState(false)
   const [resumeLoading, setResumeLoading] = useState(false)
 
   const isDev = status?.environment === 'development'
@@ -1410,7 +1410,7 @@ export default function SetupWizard({
   const next = () => setStep((s) => s + 1)
 
   const handleDevSeedDirect = async (token: string) => {
-    setDevLoading(true)
+    setSeedLoading(true)
     try {
       const res = await setupApi.devSeed(token)
       setAuth(res.user, res.accessToken, res.refreshToken)
@@ -1419,7 +1419,7 @@ export default function SetupWizard({
     } catch (err) {
       toast.error(extractError(err))
     } finally {
-      setDevLoading(false)
+      setSeedLoading(false)
     }
   }
 
