@@ -1444,7 +1444,7 @@ export default function SetupWizard({
           {settingUp && (
             <div className="text-center py-8">
               <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 dark:bg-blue-900/40">
-                <BookOpen className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400" />
+                <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-blue-200 border-t-blue-600 dark:border-blue-800 dark:border-t-blue-400" />
               </div>
               <h2 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">Setting things up...</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
