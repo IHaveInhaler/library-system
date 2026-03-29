@@ -36,6 +36,7 @@ export async function listBooks(query: BookQueryInput, userId?: string, userRole
         { author: { contains: search } },
         { isbn: { contains: search } },
         { description: { contains: search } },
+        { copies: { some: { barcode: { contains: search } } } },
       ],
     }),
   }

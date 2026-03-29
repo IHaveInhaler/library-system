@@ -27,7 +27,7 @@ async function generateUniqueLabel(prefix: string, position: ShelfPosition): Pro
 }
 
 export async function listShelves(query: ShelfQueryInput, userId?: string, userRole?: string) {
-  const { page, limit, libraryId, genre, position } = query
+  const { page, limit, libraryId, genre, position, search } = query
   const skip = (page - 1) * limit
 
   const { canViewPublic, canViewAll } = await resolveAccess(userId, userRole)
@@ -38,6 +38,15 @@ export async function listShelves(query: ShelfQueryInput, userId?: string, userR
     ...(libraryId && { libraryId }),
     ...(genre && { genre }),
     ...(position && { position }),
+    ...(search && {
+      OR: [
+        { code: { contains: search } },
+        { label: { contains: search } },
+        { location: { contains: search } },
+        { bookCopies: { some: { book: { isbn: { contains: search } } } } },
+        { bookCopies: { some: { barcode: { contains: search } } } },
+      ],
+    }),
   }
 
   const [data, total] = await prisma.$transaction([

@@ -497,8 +497,8 @@ export default function ManageShelvesPage() {
   const genre = params.get('genre') ?? ''
 
   const { data, isLoading } = useQuery({
-    queryKey: ['shelves', { page, libraryId, genre }],
-    queryFn: () => shelvesApi.list({ page, limit: 20, libraryId: libraryId || undefined, genre: genre || undefined }),
+    queryKey: ['shelves', { page, libraryId, genre, search }],
+    queryFn: () => shelvesApi.list({ page, limit: 20, libraryId: libraryId || undefined, genre: genre || undefined, search: search || undefined }),
   })
 
   const { data: libraries } = useQuery({ queryKey: ['libraries', 'all'], queryFn: () => librariesApi.list({ limit: 100 }) })
@@ -511,11 +511,7 @@ export default function ManageShelvesPage() {
     setParams(next)
   }
 
-  const filteredShelves = (data?.data ?? []).filter((s) => {
-    if (!search) return true
-    const q = search.toLowerCase()
-    return s.code.toLowerCase().includes(q) || s.label.toLowerCase().includes(q) || (s.location ?? '').toLowerCase().includes(q)
-  })
+  const filteredShelves = data?.data ?? []
 
   const posLabel = (code: string) => positions.find((p) => p.code === code)?.label ?? code
 

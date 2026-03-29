@@ -2,7 +2,7 @@ import { api } from './client'
 import type { Shelf, PaginatedResponse } from '../types'
 
 export const shelvesApi = {
-  list: (params: { page?: number; limit?: number; libraryId?: string; genre?: string; position?: string } = {}) =>
+  list: (params: { page?: number; limit?: number; libraryId?: string; genre?: string; position?: string; search?: string } = {}) =>
     api.get<PaginatedResponse<Shelf>>('/shelves', { params }).then((r) => r.data),
 
   get: (id: string) => api.get<Shelf>(`/shelves/${id}`).then((r) => r.data),

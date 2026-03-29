@@ -18,6 +18,7 @@ export const shelfQuerySchema = z.object({
   libraryId: z.string().uuid().optional(),
   genre: z.nativeEnum(Genre).optional(),
   position: z.string().optional(),
+  search: z.string().optional(),
 })
 
 export type CreateShelfInput = z.infer<typeof createShelfSchema>
