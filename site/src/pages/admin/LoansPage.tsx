@@ -294,7 +294,7 @@ export default function LoansPage() {
                         <AlertTriangle className={`h-3.5 w-3.5 flex-shrink-0 ${loan.damageReports.some((d) => !d.resolvedAt && d.type !== 'MEMBER_REPORT') ? 'text-red-500' : 'text-amber-500'}`} />
                       )}
                       <button
-                        onClick={(e) => { e.stopPropagation(); navigate(`/books/${loan.bookCopy.book.id}`) }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`/manage/books?search=${encodeURIComponent(loan.bookCopy.book.title)}`) }}
                         className="text-blue-600 hover:underline dark:text-blue-400"
                       >
                         {loan.bookCopy.book.title}

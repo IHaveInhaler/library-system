@@ -346,7 +346,7 @@ function EditShelfDrawer({ shelf, onClose }: { shelf: Shelf; onClose: () => void
               ) : (
                 <div className="space-y-2">
                   {booksData.data.map((book) => (
-                    <Link key={book.id} to={`/books/${book.id}`}
+                    <Link key={book.id} to={`/manage/books?search=${encodeURIComponent(book.title)}`}
                       className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-900/20">
                       {book.coverUrl ? (
                         <img src={book.coverUrl} alt="" className="h-12 w-8 flex-shrink-0 rounded object-cover" />

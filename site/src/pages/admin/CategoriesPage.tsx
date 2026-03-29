@@ -127,7 +127,7 @@ function CategoryDrawer({ category, onClose }: { category: Category; onClose: ()
                 {books.data.map((book: Book) => (
                   <Link
                     key={book.id}
-                    to={`/books/${book.id}`}
+                    to={`/manage/books?search=${encodeURIComponent(book.title)}`}
                     className="flex items-center gap-3 rounded-lg border border-gray-200 p-3 transition hover:border-blue-300 hover:bg-blue-50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-900/20"
                   >
                     {book.coverUrl ? (
