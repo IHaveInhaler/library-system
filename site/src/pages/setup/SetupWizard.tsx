@@ -1401,7 +1401,7 @@ export default function SetupWizard({
   const [chosenPath, setChosenPath] = useState<'fresh' | 'restore' | 'seed' | null>(null)
   const [libraries, setLibraries] = useState<Library[]>([])
   const [createdGroups, setCreatedGroups] = useState<string[]>([])
-  const [, setSeedLoading] = useState(false)
+  const [settingUp, setSettingUp] = useState(false)
   const [resumeLoading, setResumeLoading] = useState(false)
 
   const isDev = status?.environment === 'development'
@@ -1410,7 +1410,7 @@ export default function SetupWizard({
   const next = () => setStep((s) => s + 1)
 
   const handleDevSeedDirect = async (token: string) => {
-    setSeedLoading(true)
+    setSettingUp(true)
     try {
       const res = await setupApi.devSeed(token)
       setAuth(res.user, res.accessToken, res.refreshToken)
@@ -1418,8 +1418,7 @@ export default function SetupWizard({
       onComplete?.()
     } catch (err) {
       toast.error(extractError(err))
-    } finally {
-      setSeedLoading(false)
+      setSettingUp(false)
     }
   }
 
@@ -1442,7 +1441,18 @@ export default function SetupWizard({
         <StepIndicator current={step} />
 
         <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-700 dark:bg-gray-800">
-          {step === 0 && (
+          {settingUp && (
+            <div className="text-center py-8">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 dark:bg-blue-900/40">
+                <BookOpen className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400" />
+              </div>
+              <h2 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">Setting things up...</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                This may take a moment while we prepare your library system.
+              </p>
+            </div>
+          )}
+          {!settingUp && step === 0 && (
             <WelcomeStep
               backupCount={status?.backupCount ?? 0}
               isDev={isDev}
