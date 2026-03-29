@@ -377,7 +377,7 @@ text-blue-600 hover:underline dark:text-blue-400
 - Table cells in `/manage/loans`, `/manage/books`, `/manage/users`
 - Drawer detail fields (member name, approved by, book title, library)
 - Inline lists (damage reports → reporter name, book title)
-- Member dashboard (book titles in active loans → book detail)
+- **Staff pages only** (`/manage/*`, `/admin/*`) — public and member pages do NOT use entity links or cross-navigation
 
 ---
 
@@ -403,7 +403,8 @@ Inactive: bg-gray-100 text-gray-600 hover:bg-gray-200
 ### Where to apply
 - User drawer: loans tab, reservations tab, damage reports section
 - Book drawer/detail: copies list, loan history per copy
-- Any inline list inside a drawer or modal with more than 3 items
+- Any inline list inside a staff drawer or modal with more than 3 items
+- **Staff pages only** — public and member pages keep simple layouts without mini-pagination
 
 ---
 

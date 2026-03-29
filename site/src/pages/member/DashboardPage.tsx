@@ -58,8 +58,6 @@ export default function DashboardPage() {
 
   const [reportLoan, setReportLoan] = useState<Loan | null>(null)
   const [damageDesc, setDamageDesc] = useState('')
-  const [loansPage, setLoansPage] = useState(1)
-  const [reservationsPage, setReservationsPage] = useState(1)
 
   const reportDamage = useMutation({
     mutationFn: () => damageReportsApi.create({
@@ -76,14 +74,6 @@ export default function DashboardPage() {
 
   const activeLoans = loans?.filter((l) => l.status === 'ACTIVE' || l.status === 'OVERDUE') ?? []
   const pendingReservations = reservations?.filter((r) => r.status === 'PENDING') ?? []
-
-  const ITEMS_PER_PAGE = 3
-
-  const loansTotalPages = Math.max(1, Math.ceil(activeLoans.length / ITEMS_PER_PAGE))
-  const reservationsTotalPages = Math.max(1, Math.ceil(pendingReservations.length / ITEMS_PER_PAGE))
-
-  const pagedLoans = activeLoans.slice((loansPage - 1) * ITEMS_PER_PAGE, loansPage * ITEMS_PER_PAGE)
-  const pagedReservations = pendingReservations.slice((reservationsPage - 1) * ITEMS_PER_PAGE, reservationsPage * ITEMS_PER_PAGE)
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -128,9 +118,9 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {pagedLoans.map((loan) => (
+                {activeLoans.map((loan) => (
                   <tr key={loan.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                    <td className="px-4 py-3 font-medium"><Link to={`/books/${loan.bookCopy.book.id}`} className="text-blue-600 hover:underline dark:text-blue-400">{loan.bookCopy.book.title}</Link></td>
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{loan.bookCopy.book.title}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{loan.conditionAtCheckout || '—'}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(loan.dueDate).toLocaleDateString()}</td>
                     <td className="px-4 py-3"><LoanStatusBadge status={loan.status} /></td>
@@ -149,9 +139,6 @@ export default function DashboardPage() {
                 ))}
               </tbody>
             </table>
-            {loansTotalPages > 1 && (
-              <MiniPagination page={loansPage} totalPages={loansTotalPages} onPageChange={setLoansPage} />
-            )}
           </div>
         )}
       </section>
@@ -172,9 +159,9 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {pagedReservations.map((r) => (
+                {pendingReservations.map((r) => (
                   <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
-                    <td className="px-4 py-3 font-medium"><Link to={`/books/${r.book.id}`} className="text-blue-600 hover:underline dark:text-blue-400">{r.book.title}</Link></td>
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{r.book.title}</td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{new Date(r.reservedAt).toLocaleDateString()}</td>
                     <td className="px-4 py-3"><ReservationStatusBadge status={r.status} /></td>
                     <td className="px-4 py-3 text-right">
@@ -186,9 +173,6 @@ export default function DashboardPage() {
                 ))}
               </tbody>
             </table>
-            {reservationsTotalPages > 1 && (
-              <MiniPagination page={reservationsPage} totalPages={reservationsTotalPages} onPageChange={setReservationsPage} />
-            )}
           </div>
         )}
       </section>
@@ -215,26 +199,6 @@ export default function DashboardPage() {
           </div>
         </Modal>
       )}
-    </div>
-  )
-}
-
-function MiniPagination({ page, totalPages, onPageChange }: { page: number; totalPages: number; onPageChange: (p: number) => void }) {
-  return (
-    <div className="flex items-center justify-end gap-1 px-4 py-2 border-t border-gray-100 dark:border-gray-700">
-      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-        <button
-          key={p}
-          onClick={() => onPageChange(p)}
-          className={`min-w-[28px] rounded px-2 py-1 text-xs font-medium transition-colors ${
-            p === page
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
-          }`}
-        >
-          {p}
-        </button>
-      ))}
     </div>
   )
 }
