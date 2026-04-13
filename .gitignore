@@ -22,7 +22,6 @@ build/
 *.db-shm
 
 # Prisma
-prisma/migrations/
 api/prisma/dev.db*
 
 # Logs

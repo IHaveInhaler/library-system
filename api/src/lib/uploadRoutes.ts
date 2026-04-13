@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import path from 'path'
 import fs from 'fs'
-import rateLimit from 'express-rate-limit'
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit'
 import { prisma } from './prisma'
 import { upload, deleteFile, getUploadUrl, validateMagicBytes, addExtension, UPLOAD_DIR } from './upload'
 import { authenticate } from '../middleware/authenticate'
@@ -16,7 +16,7 @@ const fileDeletionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { code: 'RATE_LIMITED', message: 'Too many file deletions, please try again later' },
-  keyGenerator: (req) => req.user?.id || req.ip || 'unknown',
+  keyGenerator: (req) => req.user?.id || (req.ip ? ipKeyGenerator(req.ip) : 'unknown'),
 })
 
 const router = Router()
