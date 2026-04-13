@@ -16,6 +16,8 @@ async function main() {
   await prisma.shelf.deleteMany()
   await prisma.book.deleteMany()
   await prisma.library.deleteMany()
+  await prisma.membershipType.deleteMany()
+  await prisma.group.deleteMany()
   await prisma.refreshToken.deleteMany()
   await prisma.user.deleteMany()
 
@@ -37,6 +39,23 @@ async function main() {
       data: { email: 'member@library.com', passwordHash: memberHash, firstName: 'John', lastName: 'Smith', role: 'MEMBER' },
     }),
   ])
+
+  // Membership types
+  await Promise.all([
+    prisma.membershipType.upsert({ where: { name: 'STAFF' }, create: { name: 'STAFF', label: 'Staff', isStaff: true, isBuiltIn: true, order: 1 }, update: {} }),
+    prisma.membershipType.upsert({ where: { name: 'PERMANENT' }, create: { name: 'PERMANENT', label: 'Permanent', isBuiltIn: false, order: 2 }, update: {} }),
+    prisma.membershipType.upsert({ where: { name: 'YEARLY' }, create: { name: 'YEARLY', label: 'Yearly', durationDays: 365, isBuiltIn: false, order: 3 }, update: {} }),
+    prisma.membershipType.upsert({ where: { name: 'MONTHLY' }, create: { name: 'MONTHLY', label: 'Monthly', durationDays: 30, isBuiltIn: false, order: 4 }, update: {} }),
+  ])
+
+  // Groups
+  for (const g of [
+    { name: 'ADMIN', description: 'Full system access', isBuiltIn: true, order: 1 },
+    { name: 'LIBRARIAN', description: 'Manage books, loans, shelves, and members', isBuiltIn: false, order: 2 },
+    { name: 'MEMBER', description: 'Browse catalogue, place reservations', isBuiltIn: false, order: 3 },
+  ]) {
+    await prisma.group.upsert({ where: { name: g.name }, create: g, update: {} })
+  }
 
   // Libraries — all private
   const [centralLib, westLib] = await Promise.all([
@@ -170,7 +189,7 @@ async function main() {
     { bookId: book3.id, shelfId: shelf3.id, condition: 'NEW' },
     { bookId: book3.id, shelfId: shelf3.id, condition: 'GOOD' },
   ]
-  const copies = []
+  const copies: Awaited<ReturnType<typeof createCopy>>[] = []
   for (const def of copyDefs) {
     copies.push(await createCopy(def))
   }
